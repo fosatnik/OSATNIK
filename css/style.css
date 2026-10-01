@@ -1,0 +1,1823 @@
+* {
+  box-sizing: border-box;
+}
+
+@font-face {
+  font-family: 'TCO Brau Mono';
+  src: url('../typo/TCOBrauMono-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto Light';
+  src: url('../typo/Roboto-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto Medium';
+  src: url('../typo/Roboto-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto Bold';
+  src: url('../typo/Roboto-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --page-bg: #dbdbdb;
+  --initial-bg: #e8e8e8;
+  /* The site's hover orange - the project hover bar, About's +/− hover
+     square. */
+  --hover-orange: #ff7c24;
+  /* About Me's body text color - also the landing tagline's and the skills
+     ribbon's. */
+  --about-text-color: #b3b1b1;
+  /* Thickness of the tab titles' dotted hover/active underline. */
+  --tab-title-underline-width: 2.25px;
+  /* The open-project view's text: size and line-height of every drawer
+     text line (location, format, description columns). One line of it
+     (--project-detail-line) is the view's vertical unit: the text columns'
+     drop below the preview strip, how much taller the drawer is than its
+     base size (the photos above moved up that line, to the screen's top),
+     and the least air left under the description text. */
+  --project-detail-font-size: 13px;
+  --project-detail-line-height: 1.4;
+  --project-detail-line: calc(var(--project-detail-font-size) * var(--project-detail-line-height));
+  /* The white veil laid over whatever sits underneath - the open-project
+     backdrop over the page, and every open project's photos that lie under
+     another photo - and how it comes and goes. */
+  --under-layer-veil: rgba(255, 255, 255, 0.5);
+  --under-layer-veil-transition: opacity 0.2s steps(4, end);
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Only the root paints the base color - body stays transparent so the
+   photo layer below (z-index:-1, painted under body's own background)
+   shows through. */
+html {
+  background: var(--initial-bg);
+}
+
+/* The landing photo, on its own layer under everything (the glyph canvas
+   still blends over it), resting on the screen's left and bottom edges.
+   Its width is exactly the distance from the screen's left edge to the
+   About Me tab's left edge on the landing and its height follows from its
+   own aspect ratio ("<width> auto" in --landing-photo-size, set by
+   sizeLandingPhoto in tabs.js) - scaled proportionally, never stretched,
+   never cropped by CSS. Until that's measured, it fits the screen
+   (contain). Whatever the photo doesn't reach shows the root's base
+   color. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url('../images/media/login.png') left bottom no-repeat;
+  background-size: var(--landing-photo-size, contain);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Phones (767px wide or less): only this message, filling the screen -
+   nothing of the portfolio shows or takes input behind it. Every other
+   body child (including what tabs.js appends there: rects, the viewer, the
+   hover bar) and the landing photo are hidden outright; html/body already
+   never scroll. Desktop (768px and up) never shows it. */
+.mobile-notice {
+  display: none;
+}
+
+/* Its colors: one tab's color-block rect and that same tab's title color,
+   drawn once per load (--mobile-notice-bg/-color, set by tabs.js from
+   TAB_ACCENT_COLORS). The tab titles' own family and weight. */
+/* 767.98, not 767: on a fractional-pixel screen a "767px" viewport can be
+   767.3 wide and slip past a plain 767px limit. */
+@media (max-width: 767.98px) {
+  html {
+    background: var(--mobile-notice-bg, var(--tab-open-bg));
+  }
+
+  body::before,
+  body > *:not(.mobile-notice) {
+    display: none !important;
+  }
+
+  .mobile-notice {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    height: 100dvh;
+    padding: 0 24px;
+    box-sizing: border-box;
+    background: var(--mobile-notice-bg, var(--tab-open-bg));
+    color: var(--mobile-notice-color, #000);
+    font-family: 'IBM Plex Serif', 'Times New Roman', serif;
+    font-weight: 500;
+    font-size: 15px;
+    line-height: 1.4;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .mobile-notice p {
+    margin: 0;
+  }
+}
+
+#nameCanvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  /* Always below .tabs-container (z-index:1) - the tabs/solapas must never
+     have a glyph visually pass over them, whether they're closed slivers on
+     the landing, open, mid-slide, or several overlapping at once. Still
+     above the plain page background (the only thing behind it at this
+     level). Well below the photo drawer/viewer/backdrop (1002-1004) too,
+     which read as fully on top of everything, glyph included, once open -
+     that relation holds regardless of this low a value. */
+  z-index: 0;
+  /* Blends the glyphs against whatever's behind the canvas (photo, panel
+     colors, page background) so they read as a soft tint instead of a flat
+     opaque layer sitting on top of it. */
+  mix-blend-mode: multiply;
+}
+
+/* left/top are set in JS (positionLandingTagline, tabs.js): its first
+   letter on About's body text's left edge, its text on About's skills-ribbon
+   baseline. These values are only the fallback before that runs. */
+.landing-tagline {
+  position: fixed;
+  top: var(--landing-tagline-top, 60vh);
+  left: 0;
+  text-align: left;
+  white-space: pre;
+  font-family: 'IBM Plex Serif', 'Times New Roman', serif;
+  font-weight: 500;
+  font-size: max(7px, calc(var(--glyph-cell-size, 20px) * 0.9));
+  letter-spacing: 0;
+  text-transform: lowercase;
+  color: var(--about-text-color);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.grid-char {
+  display: inline-block;
+  width: var(--glyph-cell-size, 1em);
+  text-align: center;
+}
+
+.tab-title-char:first-child {
+  text-align: left;
+}
+
+.tab-title-char:last-child {
+  text-align: right;
+}
+
+.tagline-char {
+  opacity: 1;
+}
+
+:root {
+  --tab-overlap-chars: 3;
+  --tab-side-padding: 0px;
+  --tabs-top-gap: 0px;
+  --tab-title-lift: 3px;
+  --title-row-height: 1.4em;
+  --tabs-transition-duration: 320ms;
+  --tabs-intro-duration: 420ms;
+  --tabs-transition-ease: cubic-bezier(0.42, 0, 0.58, 1);
+  /* Slightly bigger jumps, checked slightly less often (both were
+     22px/35ms) - same grid step size as script.js's own GRID_STEP, kept in
+     step with it, for a bit more of a "rasterized" feel on both the panel
+     slide and the glyph transitions alike, without overdoing it. */
+  --tabs-grid-step: 26px;
+  --tabs-step-interval: 45ms;
+  --reset-tab-width: 28px;
+  --tabs-left-shift: 150px;
+
+  /* Every tab's own surface, open or closed alike - a plain, neutral gray,
+     the same for all of them (see .tab-panel). Each tab's own fixed colors
+     live in its .tab-color-block and its title (both from
+     TAB_ACCENT_COLORS, js/tabs.js). */
+  --tab-open-bg: #e5e5e5;
+  /* The space between two photos: the project carousels' gap and the
+     galleries' grid streets (.personal-photos-grid) - one shared value. */
+  --project-media-gap: 35px;
+  /* The dark gray rectangle behind every project's title
+     (.design-project-band.is-caption). */
+  --project-caption-bg: #b3b3b3;
+  /* Base tab-title color: About Me, Design and Photography each override it
+     inline with their own (buildPanels, TAB_ACCENT_COLORS); Contact uses
+     this base as-is - the tab surface's gray (the same as the Design
+     project titles'). The hover/active dotted underline is currentColor, so
+     it always matches its title - see .tab-title. */
+  --tab-title-color: var(--tab-open-bg);
+
+  --tab-about-bg: #bfbfbf;
+  /* What About's own tab shows once it's covered (not the active tab) -
+     different from --tab-about-bg, which is also the shared color every
+     ACTIVE tab takes on (see .tab-panel.is-active) and so is what About
+     itself still shows while open. Both unused now that every panel shares
+     --tab-open-bg instead - kept, not deleted, along with the rest of the
+     old per-tab palette system (js/tabs.js TAB_COLOR_PALETTES) in case a
+     per-tab background comes back later. */
+  --tab-about-covered-bg: #f7b7f7;
+  --tab-design-bg: #58c165;
+  --tab-photo-bg: #e5d939;
+  --tab-essays-bg: #2f8cd1;
+  --tab-text-dark: #565656;
+  --tab-text-light: #f3f2f0;
+  --tab-marquee-bg: #76cbff;
+  --tab-marquee-rect-left-extend: 28px;
+}
+
+@media (max-width: 720px) {
+  :root {
+    --tab-side-padding: 0px;
+    --tabs-top-gap: 0px;
+    --tabs-grid-step: 26px;
+    --reset-tab-width: 20px;
+  }
+}
+
+.tabs-container {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+  /* Tabs are visible and clickable (closed, along the left edge - see
+     computeTargets' activeIndex<0 landing layout) from the very first
+     frame, before 'is-visible' is ever added (that class still marks
+     "something has actually been opened at least once" for the rest of the
+     codebase - see selectPanel/isClosingTransition/resetEverything -  it no
+     longer gates clickability on its own). */
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.tab-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* Every tab, open or closed, shares this exact same plain surface now -
+     see the --tab-open-bg comment above. Only .tab-color-block (behind the
+     title, fixed width/color - see buildPanels) ever shows this tab's own
+     color. */
+  background: var(--tab-open-bg);
+}
+
+/* The Contact tab (buildContactTab/positionContactTab in tabs.js): a side
+   tab turned horizontal, pinned to the top of the screen and unrolling
+   downward. left/width/height are set in JS from existing references (see
+   there). Its title is a plain .tab-title, so it shares the tab titles' type
+   and dotted underline. The whole strip is the click target; overflow:hidden
+   so whatever it holds is only revealed as it unrolls. */
+.contact-tab {
+  position: absolute;
+  top: 0;
+  /* left is set in JS; the strip always runs from there to the screen's
+     right edge. */
+  right: 0;
+  /* CONTACT_LAYER: the top of tabsContainer - above every tab, every
+     project in the list and the project hover bar (9/10); below only the
+     open-project view (PROJECT_DETAIL_LAYER - drawer/viewer/backdrop, on
+     <body> at 1002-1004, above tabsContainer's whole stacking context). See
+     the layer list above panelLayerZ in tabs.js. */
+  z-index: 11;
+  overflow: hidden;
+  /* The same surface as every other tab - the orange lives only in its
+     handle (.contact-handle). */
+  background: var(--tab-open-bg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* CONTACT_ORANGE_HANDLE: the orange rectangle (the site's hover orange,
+   --hover-orange) with the title in it - always the closed strip's own
+   size (--contact-handle-height, set in JS), resting on the strip's bottom
+   edge, so the strip's height animation carries it down and back up as one
+   piece. While closed it covers the whole strip - exactly the orange
+   rectangle the landing always showed. */
+.contact-handle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--contact-handle-height, 0px);
+  background: var(--hover-orange);
+}
+
+/* Pinned to the handle's bottom edge, so it travels with it. Its color is
+   the base --tab-title-color (Contact sets no override of its own). */
+.contact-tab .tab-title {
+  /* --contact-text-left is set in JS (positionContactTab): the Design
+     project titles' x - shared with the info block above it. */
+  position: absolute;
+  left: var(--contact-text-left, 0px);
+  /* Resting on the strip's bottom edge, with only the dotted underline's
+     own thickness below the letter cells so it's never clipped. */
+  bottom: var(--tab-title-underline-width);
+}
+
+/* The open Contact tab's info (buildContactContent in tabs.js). The window
+   runs from the strip's top down to the top of the orange handle, clipping
+   what's inside - so its bottom edge travels with the handle. The block
+   sits at a fixed height (below): while Contact is closed the handle fills
+   the whole strip and the window has no height (nothing shows); as the
+   strip unrolls the handle slides down off the block and the window
+   uncovers it line by line, on the gray surface - revealed by that
+   clipping alone. */
+.contact-content-window {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: var(--contact-handle-height, 0px);
+  overflow: hidden;
+}
+
+/* Same x as the title (--contact-text-left); top set in JS
+   (positionContactContent) so MAIL sits on the closed title's baseline.
+   Roboto Light from /typo, in the About body's own size and text color
+   (--about-text-color) - the tabs' normal running text on their gray
+   surface. */
+.contact-content {
+  position: absolute;
+  left: var(--contact-text-left, 0px);
+  top: var(--contact-content-top, 0px);
+  font-family: 'Roboto Light', sans-serif;
+  font-weight: 300;
+  font-size: 15px;
+  line-height: normal;
+  color: var(--about-text-color);
+  white-space: nowrap;
+}
+
+/* One empty line between each label/value pair (MAIL, TEL, INSTAGRAM). */
+.contact-value + .contact-label {
+  margin-top: 1lh;
+}
+
+/* MAIL / TEL / INSTAGRAM: the same face as "federico osatnik" in About's body
+   (.tab-body .tab-body-name - the Roboto Medium file from /typo); size
+   unchanged. */
+.contact-label {
+  font-family: 'Roboto Medium', sans-serif;
+  font-weight: 500;
+}
+
+/* Plain text - no button/link chrome of its own. */
+.contact-copy,
+.contact-link {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* All always underlined, so they read as interactive: the copyable values
+   (email, phone) in their own color, the Instagram handle in link blue -
+   the same blue whether or not it's been visited, and on hover. */
+.contact-copy {
+  text-decoration: underline;
+}
+
+.contact-link,
+.contact-link:visited,
+.contact-link:hover {
+  color: #0022ff;
+  text-decoration: underline;
+}
+
+/* "copied" sits just right of its own value, out of flow, so showing it
+   never moves anything. */
+.contact-copy-wrap {
+  position: relative;
+}
+
+.contact-copied {
+  position: absolute;
+  left: calc(100% + 1em);
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.contact-copied.is-visible {
+  visibility: visible;
+}
+
+.tabs-home {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--reset-tab-width));
+  width: var(--reset-tab-width);
+  z-index: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.osatnik-hotspot {
+  position: absolute;
+  /* Covers the whole collapsed OSATNIK column - vertical, on the screen's
+     left margin - as one single click/touch zone, letters and the gaps
+     between them alike, not just the drawn strokes themselves. */
+  top: var(--osatnik-block-top, 0px);
+  left: var(--osatnik-block-left, 0px);
+  width: var(--osatnik-block-width, 0px);
+  height: var(--osatnik-block-height, 0px);
+  pointer-events: none;
+  cursor: pointer;
+  /* Above every tab layer in tabsContainer (the top one, Photography's
+     content, is 6), below the hover bar (9) and Contact (11) - see the
+     layer list above panelLayerZ in tabs.js. */
+  z-index: 8;
+}
+
+.osatnik-hotspot.is-active {
+  pointer-events: auto;
+}
+
+/* Every project-bearing panel (design, photography, essays) gets the same
+   treatment: their stacked project blocks run taller than the viewport, so
+   each is scrollable vertically to reach them all, while horizontal overflow
+   stays hidden (unlike overflow:hidden on the base .tab-panel rule, this is
+   two explicit non-visible values, so there's no visible/auto interaction to
+   worry about). The carousel portals track this on scroll too - see the
+   'scroll' listener added on each of these panels in buildDesignProjects. */
+.tab-panel[data-panel="design"],
+.tab-panel[data-panel="photography"],
+.tab-panel[data-panel="essays"] {
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* No visible scrollbar - same hidden-scrollbar treatment as the carousel
+     portal, so the panel stays scrollable (wheel/trackpad/drag) without a
+     bar sitting over the covered tabs' own slivers. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tab-panel[data-panel="design"]::-webkit-scrollbar,
+.tab-panel[data-panel="photography"]::-webkit-scrollbar,
+.tab-panel[data-panel="essays"]::-webkit-scrollbar {
+  display: none;
+}
+
+/* Sticky so each panel's own title stays put at the top as its project list
+   scrolls, instead of scrolling away with it. Deliberately transparent: the
+   header's box is tall (its padding-top reaches down to the title's row,
+   ~a third of the viewport - see .tab-header below), so an opaque
+   background here acted as a second panel background ABOVE the content and
+   hid everything scrolling through the top third (years, the personal
+   photos...). The panel's own background and .tab-color-block (z-index:-1)
+   already paint the same surface underneath, so only the title letters
+   themselves sit above the content (z-index, since the content is
+   position:absolute). pointer-events:none so that tall transparent box
+   never swallows hover/clicks meant for content scrolled under it - clicks
+   still reach the panel itself. */
+.tab-panel[data-panel="design"] .tab-header,
+.tab-panel[data-panel="photography"] .tab-header,
+.tab-panel[data-panel="essays"] .tab-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Whichever tab is open reads as About's own color instead of its usual one
+   - and fades back to its own color the moment it's no longer active
+   (closed, or covered by another tab opening on top of it). Equal
+   specificity to the per-tab rules above (one class + one attribute
+   selector either way) is moot now that every panel shares the exact same
+   --tab-open-bg regardless of .is-active - kept only as a marker comment in
+   case that per-tab/active distinction comes back later. */
+
+.tab-header {
+  flex-shrink: 0;
+  /* Lines every tab's own title up with the topmost point the display
+     glyphs actually reach while assembled into the landing's "FEDERICO
+     OSATNIK" display (--osatnik-landing-top - originY, set in script.js's
+     layout()), not the generic/collapsed OSATNIK title box's own top - same
+     height for every tab, not staggered per panel any more. */
+  padding: calc(var(--osatnik-landing-top, 32vh) + var(--tabs-top-gap) - var(--tab-title-lift, 0px)) var(--tab-side-padding) 12px;
+}
+
+/* This tab's one fixed color, permanently pinned to its own panel's left
+   edge (see buildPanels/positionTabColorBlocks in tabs.js, which set its
+   width/color/height - never this rule). Reaches all the way down to this
+   tab's own scrollable content, not just one viewport (height is set in JS,
+   not "bottom:0" here, precisely so it can be taller than the panel's own
+   viewport-height box and still scroll down with the rest of the content
+   instead of stopping short of it) so a closed tab's whole visible sliver
+   reads as solid color throughout, and sits behind everything else in the
+   panel (z-index:-1, within the panel's own stacking context - .tab-panel
+   always carries an explicit z-index of its own) so the title/body paint
+   over it normally. Deliberately never animated on its own: its
+   width/color/position are always exactly this fixed - the panel's own
+   overflow:hidden is what reveals only part of it while closed, the same
+   clipping that already reveals a covered title's own letters, not a
+   separate transition. */
+.tab-color-block {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.tab-title {
+  position: relative;
+  /* No more per-panel stagger - every tab's title now starts at the exact
+     same height (see .tab-header's own padding-top). */
+  margin: 0;
+  font-family: 'IBM Plex Serif', 'Times New Roman', serif;
+  font-weight: 500;
+  font-size: max(7px, calc(var(--glyph-cell-size, 20px) * 0.9));
+  line-height: normal;
+  letter-spacing: 0;
+  text-transform: lowercase;
+  display: inline-block;
+  /* This tab's own title color, the same in every state (vertical,
+     horizontal, mid-animation, hover, covered) - see --tab-title-color.
+     Inherited by every letter span below, so their own border-bottom
+     underline (currentColor) matches too, with no separate rule needed. */
+  color: var(--tab-title-color);
+  /* width/height are set inline by tabs.js (setTabTitleLayoutsInstant/
+     animateToTargets) - a fixed "canvas" box big enough for either layout,
+     since every letter below is pulled out of normal flow and positioned
+     purely by transform, and so no longer contributes to this box's own
+     natural size the way in-flow text would. */
+}
+
+/* Every title letter moves on its own via 'transform: translate(x, y)',
+   set/animated in tabs.js (tabTitleCharSlot/setTabTitleLayoutsInstant/
+   animateToTargets) - the same grid-snapped, stepped motion language
+   script.js's own FEDERICO OSATNIK glyph animation uses (see script.js's
+   tick()/snap()/GRID_STEP; tabs.js's own panel slide already deliberately
+   borrows that same grid, see snapToTabsGrid). Position:absolute + transform
+   keeps each letter one continuous element across the horizontal/vertical
+   switch - nothing is ever swapped, faded, or rebuilt - so it can glide from
+   its row slot to its column slot (or back) instead of an instant re-flow.
+   Its own underline (below) moves with it letter by letter: identical,
+   touching borders read as one continuous line in horizontal mode and as N
+   separate lines once stacked vertically, with no extra CSS needed to tell
+   the two apart. */
+.tab-title .tab-title-char.grid-char {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-bottom: 0 dotted currentColor;
+  padding-bottom: 2px;
+}
+
+.tab-panel.is-active .tab-title .tab-title-char,
+.tab-panel:hover .tab-title .tab-title-char,
+.contact-tab.is-open .tab-title .tab-title-char,
+.contact-tab:hover .tab-title .tab-title-char {
+  border-bottom-width: var(--tab-title-underline-width);
+}
+
+/* Once a title has switched to its single-column, one-letter-per-line stack
+   (see tabTitleLayoutForTarget in tabs.js) every letter centers uniformly in
+   its cell, instead of the first/last letters flushing to the horizontal
+   word's own outer edges (the plain .tab-title-char:first-child/:last-child
+   rule above, still in effect for the horizontal layout). */
+.tab-title.is-vertical .tab-title-char:first-child,
+.tab-title.is-vertical .tab-title-char:last-child {
+  text-align: center;
+}
+
+.tab-body {
+  flex: 1 1 auto;
+  /* overflow-x must be set explicitly (not left as the visible default) -
+     otherwise the UA coerces it to auto alongside overflow-y here, which
+     shows a real horizontal scrollbar (and lets it be dragged) across a
+     covered tab's own collapsed sliver width. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 12px var(--tab-side-padding, 0) 24px;
+}
+
+/* About Me's body text. .tab-body only exists on the About panel (the only
+   PANELS entry with its own "body" - see tabs.js) - so the color is
+   effectively About's own fixed text color, independent of the tab-title's
+   own. */
+.tab-body p {
+  font-family: 'Roboto Light', sans-serif;
+  font-weight: 300;
+  font-size: 15px;
+  line-height: normal;
+  color: var(--about-text-color);
+}
+
+.tab-body p {
+  margin: 0;
+  max-width: 60ch;
+  /* Honors a literal "\n" inside a paragraph string as a line break, while
+     still collapsing runs of spaces and wrapping normally otherwise. */
+  white-space: pre-line;
+}
+
+/* Just the words "federico osatnik" in About's text (a span inside the
+   paragraph - see appendWithNameSpan in tabs.js): the Roboto Medium file
+   from /typo (@font-face above) instead of the paragraph's Roboto Light.
+   Typeface only - size, line-height, color and position all stay the
+   paragraph's own. */
+.tab-body .tab-body-name {
+  font-family: 'Roboto Medium', sans-serif;
+  font-weight: 500;
+}
+
+.tab-body p + p {
+  margin-top: 1em;
+}
+
+/* Just the sliding text ribbon now - no colored rectangle behind it any
+   more (background:transparent; was var(--tab-marquee-bg) - see the
+   rect-morph kill-switch comment further down). Position/sizing unchanged,
+   since the text itself still needs to line up exactly where it always
+   did. */
+.tab-marquee {
+  position: absolute;
+  top: 0;
+  /* Extends 30px past the design flap's own edge - .tab-marquee-clip below
+     compensates with its own right inset so the sliding text's own visible
+     window doesn't grow along with it. */
+  right: -30px;
+  pointer-events: none;
+  background: transparent;
+  /* Same size as the tab titles (.tab-title/.design-project-title's own
+     "* 0.9" formula), per the request that this ribbon share their exact
+     typography. */
+  font-size: max(7px, calc(var(--glyph-cell-size, 20px) * 0.9));
+  /* Extra room below the type (in the same em unit, so it scales with it). */
+  padding-bottom: 1.1em;
+}
+
+/* Clips the sliding text horizontally. Its left edge is set in JS to sit at
+   least as far right as the About tab's own collapsed (sliver) width, so no
+   part of the loop text ever peeks out from under another open tab. */
+.tab-marquee-clip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* Offsets the rectangle's own 30px extension back off, so the sliding
+     text's own clip window stays exactly where it was. */
+  right: 30px;
+  white-space: nowrap;
+  /* Clip the sliding text only left/right (where the duplicated loop text
+     must not show past the ribbon's edges); leave top/bottom unclipped so
+     ascenders can overshoot the rectangle on purpose (see JS margin-top). */
+  clip-path: inset(-100vh 0 -100vh 0);
+}
+
+/* A free-floating clone of a rectangle (either the About ribbon or a
+   project's own .design-project-rect), used only while the About<->tab
+   split/merge transition is in flight - see beginRectMorph/
+   updateRectMorphFrame in tabs.js. Body-level (a sibling of #nameCanvas),
+   same reasoning as every other ghost in this file: needs to read above
+   every ordinary tab panel while it's mid-flight, regardless of which panel
+   is becoming active or covered at that moment. */
+.rect-morph-ghost {
+  position: fixed;
+  background: var(--tab-marquee-bg);
+  pointer-events: none;
+}
+
+.tab-marquee-track {
+  display: inline-block;
+  font-family: 'IBM Plex Serif', 'Times New Roman', serif;
+  font-weight: 500;
+  font-size: inherit;
+  line-height: 1;
+  /* margin-top is set in JS from measured font metrics, so the rectangle's
+     top edge lands exactly at the type's x-height rather than a guessed em value. */
+  text-transform: lowercase;
+  /* About's body text color. */
+  color: var(--about-text-color);
+  will-change: transform;
+  animation-name: tab-marquee-scroll;
+  animation-duration: 24s;
+  animation-iteration-count: infinite;
+  /* Stepped rather than linear, so it slides in the same pixelated jumps as
+     the rest of the site's motion - JS tightens the step count to line up
+     with --tabs-grid-step once the track's real width is known. */
+  animation-timing-function: steps(40, end);
+}
+
+@keyframes tab-marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Designs tab project blocks. Positioned absolutely by JS (positionDesignProjects)
+   to exactly match the About Me text's own box, so it never adapts to the
+   design panel's own current (possibly collapsed) width. */
+.design-projects {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 64px;
+  /* A tab's content layer (a sibling of the panels in tabsContainer - see
+     buildDesignProjects/panelContentLayerZ): only the projects and photos
+     themselves take the pointer, so the empty parts of the column never
+     block the panel underneath. */
+  pointer-events: none;
+}
+
+.design-project,
+.personal-photo {
+  pointer-events: auto;
+}
+
+/* The block itself isn't a click target any more - only its title (and its
+   carousel's photos) open the project. Positioned so its two background
+   bands can be placed in its own coordinates. */
+.design-project {
+  position: relative;
+  cursor: default;
+}
+
+/* Each project's two background bands (placed by positionProjectBands in
+   tabs.js): white behind the carousel's enlarged photo, #B3B3B3 from there
+   to the bottom of the title - edge to edge across the tab's gray area.
+   Children of the block, so they scroll and slide with it. z-index -1 puts
+   them under everything else in the tab's content layer (a stacking
+   context - see .panel-content-layer): the title/year/tags, the photo rows
+   and the arrows all paint above them, while the layer itself still sits
+   above its own tab and below the next one. Purely backgrounds - they
+   never take the pointer. */
+.design-project-band {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.design-project-band.is-photos {
+  background: #fff;
+}
+
+.design-project-band.is-caption {
+  background: var(--project-caption-bg);
+}
+
+/* On the #B3B3B3 band, the title, year and carousel arrows take the tab's
+   own gray (--tab-open-bg, the .tab-panel background); the tags below it
+   take the band's #B3B3B3. Scoped to real projects - the "fotografía
+   personal" title reuses the title classes but has no band behind it. (The
+   arrows' own color is set on .design-carousel-nav-btn.) */
+.design-project .design-project-title,
+.design-project .design-project-year {
+  color: var(--tab-open-bg);
+}
+
+.design-project .design-project-tags span {
+  color: #b3b3b3;
+}
+
+.design-project .design-project-title {
+  cursor: pointer;
+}
+
+/* A gallery whose title acts like a project's (collection.projectHeader -
+   "Explorations & Other Works"): the same title color on the same
+   dark gray band, the same pointer, and - since the gallery sits in a
+   pointer-events:none layer - the title itself takes the pointer. */
+.personal-photos.is-project-header .design-project-title {
+  color: var(--tab-open-bg);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Its filter row (collection.filters - see buildPersonalPhotos) is a
+   project's own tags row: the same classes, so the same type, spacing and
+   color - only clickable. */
+.personal-photos.is-project-header .design-project-tags span {
+  color: #b3b3b3;
+}
+
+/* Each filter carries the tab titles' own dotted underline (.tab-title-char:
+   same thickness, pattern and 2px offset), invisible at rest; the negative
+   margin keeps that underline from adding to the row's height, so the row
+   still sits exactly like a project's tags. */
+.personal-photos-filter {
+  cursor: pointer;
+  pointer-events: auto;
+  padding-bottom: 2px;
+  border-bottom: var(--tab-title-underline-width) dotted transparent;
+  margin-bottom: calc(-2px - var(--tab-title-underline-width));
+}
+
+/* Hovering a filter that isn't selected: the underline shows, in orange,
+   only while hovered. */
+.personal-photos-filter:not(.is-active):hover {
+  border-bottom-color: var(--hover-orange);
+}
+
+/* The selected one: on its orange mark, the light gray the titles take on
+   orange (the project titles over the hover bar, Contact's title). */
+.personal-photos.is-project-header .design-project-tags .personal-photos-filter.is-active {
+  color: var(--tab-open-bg);
+}
+
+/* The selected filter's mark: the hover bar's orange, exactly the word's
+   width, from the gray band's bottom to the bottom of its dotted underline's
+   line - the hover underline's own bottom (placed in JS -
+   placeGalleryFilterMark). Under the text, like the bands. */
+.personal-photos-filter-mark {
+  position: absolute;
+  z-index: -1;
+  background: var(--hover-orange);
+  pointer-events: none;
+}
+
+/* One per project-bearing tab (see buildDesignProjects): a sibling of the
+   panels covering tabsContainer, at that tab's content z (between its own
+   surface and the next tab's). Never clips, never takes the pointer itself -
+   only its projects, photos and arrows do. Inside it, DOM order is paint
+   order: project column, then photo rows, then arrows. */
+.panel-content-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Gives a project panel its scroll height now that its content lives in a
+   separate layer - sized in JS (positionDesignProjects) to the content's
+   full extent. */
+.panel-scroll-spacer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.design-project {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Pushes every block (this one included) down 80px from where it'd
+     otherwise sit - separate from .design-projects' own gap, which only
+     adds space between blocks, not before the first one. */
+  margin-top: 80px;
+}
+
+/* Space between one project and the next: .design-projects' own 64px gap
+   plus this 224px margin-top = 288px, shared by Design and Photography.
+   Only non-first blocks get it - the first keeps the base rule's 80px below
+   the header. */
+.design-project:not(:first-child) {
+  margin-top: 224px;
+}
+
+/* A gallery section (Explorations & Other Works / Archive) - the last child of a tab's .design-projects
+   column (see buildPersonalPhotos in tabs.js), so it continues the same
+   vertical flow. Its title uses the project titles' own markup/classes and
+   column. margin-top and gap are set in JS (sizePersonalPhotos) so the
+   title sits one project-rhythm unit below the last carousel and one above
+   the grid; the grid's horizontal offset and width are also set there so it
+   spans exactly the carousels' own left and right edges. */
+.personal-photos {
+  display: flex;
+  flex-direction: column;
+  /* Positioned for its white background band (see .design-project-band). */
+  position: relative;
+}
+
+/* Every gallery's grid (Explorations & Other Works, Archive): square cells
+   (--personal-photo-width/-height, sized in JS - sizePersonalPhotos), 4
+   columns on desktop (--personal-photo-columns), starting at the carousels'
+   left edge. Between every two cells, across and down, a street exactly the
+   carousels' photo gap (--project-media-gap - the same shared value). */
+.personal-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--personal-photo-columns, 1), var(--personal-photo-width, 216px));
+  grid-auto-rows: var(--personal-photo-height, 212px);
+  justify-content: start;
+  gap: var(--project-media-gap);
+  /* No visible lines: the grid organizes the media (cells, streets, empty
+     cells) without drawing itself. */
+}
+
+/* Same placeholder treatment as a carousel photo (real media: see
+   .personal-photo.has-image below); the cell's lines are its outline. */
+.personal-photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.08);
+  font-family: 'Roboto Light', sans-serif;
+  font-weight: 300;
+  /* The carousel label's 15px at the enlarged photo's 2.25 scale. */
+  font-size: 34px;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* A real photo/GIF/video in the cell (.project-image): the square keeps its
+   exact size and the media grows until it meets its first edge, centered
+   both ways (object-fit: contain) - never cropped or distorted; the
+   gallery's white band shows around it. No placeholder fill. */
+.personal-photo.has-image {
+  background: none;
+}
+
+.design-project-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  /* .design-project-rect is position:fixed (a positioned, z-index:auto
+     layer), which paints above ordinary in-flow content like this header
+     regardless of DOM order - relevant now that a panel can nudge its own
+     rect up over its project's title/year (see
+     PROJECT_RECT_TOP_OFFSET_BY_PANEL in tabs.js). Promoting the header into
+     its own positioned layer with an explicit z-index guarantees it paints
+     above that rect instead. */
+  position: relative;
+  z-index: 1;
+}
+
+.design-project-title {
+  font-family: 'IBM Plex Serif', 'Times New Roman', serif;
+  font-weight: 500;
+  /* Same size as .design-project-year (and both baseline-aligned via
+     .design-project-header) so every title reads at a consistent size and
+     matches its year, rather than each project's own title looking bigger
+     than its year next to it. */
+  font-size: max(7px, calc(var(--glyph-cell-size, 20px) * 0.9));
+  text-transform: lowercase;
+  color: inherit;
+  /* Each letter is its own inline-block span (grid-char - see
+     buildDesignProjects), so without this the browser treats every letter as
+     its own break opportunity and can wrap mid-word (e.g. "blair" splitting
+     into "bl"/"air") on a long title. Forces the whole title onto one line
+     instead - there's room for it in the panel's own width, this was never a
+     real overflow, just spurious inter-letter wrapping. */
+  white-space: nowrap;
+}
+
+/* Only the very first character capitalized - text-transform: capitalize
+   would capitalize every word, which isn't what's wanted here. */
+.design-project-title::first-letter {
+  text-transform: uppercase;
+}
+
+.design-project-year {
+  font-family: 'IBM Plex Serif', 'Times New Roman', serif;
+  font-weight: 500;
+  font-size: max(7px, calc(var(--glyph-cell-size, 20px) * 0.9));
+  text-transform: lowercase;
+  color: inherit;
+  white-space: nowrap;
+  position: relative;
+  left: 235px;
+}
+
+.design-project-tags {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.design-project-tags span {
+  font-family: 'Roboto Light', sans-serif;
+  font-weight: 300;
+  font-size: 15px;
+  text-transform: uppercase;
+  color: inherit;
+}
+
+/* The same colored rectangle as the About tab's own .tab-marquee, one per
+   project. Deliberately position:fixed at a constant viewport left/width (set
+   in JS - see positionProjectRectsForPanel) instead of position:absolute
+   relative to its own (horizontally sliding) panel: it must never visibly
+   travel sideways as a tab opens/closes/switches, only change vertically (and
+   split/merge) once a tab actually becomes the open one - see beginRectMorph
+   in tabs.js, which only ever eases its top, never its left/width, for the
+   same reason. Only its top differs per project, tracking that project's own
+   live position. Its height is kept in sync with the About rectangle's own
+   real height (syncProjectRectHeights) so every rectangle - About's and every
+   project's - reads as the exact same graphic element. Hidden outright
+   whenever its own tab isn't the active one (refreshRectVisibility in
+   tabs.js) - normal z-index stacking can't cover a position:fixed element the
+   way it covers an ordinary panel-relative one. */
+.design-project-rect {
+  position: fixed;
+  height: var(--project-rect-height, 40px);
+  background: var(--tab-marquee-bg);
+  pointer-events: none;
+}
+
+/* Essays tab only - independent of the carousel/drawer system every other
+   project-bearing panel uses below (see buildEssayCards in tabs.js). Each
+   essay is a single white card, positioned by the exact same
+   positionDesignProjects() box as Design/Photography's own project column
+   (projectsElByPanel.essays), just with different content inside it. */
+.essay-cards {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 64px;
+}
+
+.essay-card {
+  /* Same 80px push as .design-project's own margin-top, for the same
+     spacing rhythm between one card and the next. */
+  margin-top: 80px;
+  background: #fff;
+  color: var(--tab-text-dark);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+}
+
+/* Everything visible while the card is closed - also the whole card's
+   click target (see buildEssayCards), so "the whole white rectangle is
+   clickable" holds exactly while closed, since the body below has zero
+   height until then. Kept separate from .essay-card-body so clicking to
+   read/select the expanded essay text never accidentally collapses it. */
+.essay-card-hit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px;
+  cursor: pointer;
+}
+
+/* Replaces the project tags row for Essays - same font/size/weight/case as
+   .design-project-tags span above (the closed-state tags/labels this
+   stands in for), just as a flowing paragraph instead of short labels. */
+.essay-card-summary {
+  margin: 0;
+  font-family: 'Roboto Light', sans-serif;
+  font-weight: 300;
+  font-size: 15px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: inherit;
+}
+
+/* .design-project-year's own "left: 235px" (reused as-is, unchanged - the
+   year's position itself is NOT touched here) is tuned for Design/
+   Photography's own, much wider project column - inside an essay card's
+   narrower default width it would push the year out past the card's own
+   right edge, into the panel behind it. Instead of moving the year,
+   positionDesignProjects() (tabs.js) widens the essay card itself - via
+   essayCardRequiredWidth() - just enough that its own right edge always
+   reaches the year's unchanged position. */
+
+/* Smoothly animates open/closed without ever measuring pixel heights in JS:
+   a 0fr/1fr grid row transition, with .essay-card-body (the actual content)
+   as its single row-item - the standard technique for animating to/from an
+   unknown "auto" height. Deliberately NOT the site's usual stepped
+   steps(n, end) timing - this motion is meant to read as smooth and
+   directly tied to the card itself, not the rasterized language used for
+   panel slides/carousels elsewhere. */
+.essay-card-body-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 420ms ease;
+  overflow: hidden;
+}
+
+.essay-card.is-open .essay-card-body-wrap {
+  grid-template-rows: 1fr;
+}
+
+/* Required for the grid-row trick above: a grid item's default min-height is
+   auto (its own content size), which would refuse to shrink below that and
+   break the collapse to 0fr - min-height:0 overrides that, but only for the
+   item's own content; any padding/border on this same element would still
+   force a non-zero minimum regardless (its box model, not its content).
+   That's why the actual padding lives one level deeper, on
+   .essay-card-body-inner, instead of here. */
+.essay-card-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.essay-card-body-inner {
+  padding: 0 24px 24px;
+  /* The full essay text reads as two columns of paragraphs instead of one
+     long stacked column. */
+  column-count: 2;
+  column-gap: 40px;
+}
+
+.essay-card-body-inner p {
+  margin: 0;
+  font-family: 'Roboto Light', sans-serif;
+  font-weight: 300;
+  font-size: 15px;
+  line-height: normal;
+  color: inherit;
+  /* Keeps each paragraph whole within a single column instead of letting the
+     column break land mid-paragraph. */
+  break-inside: avoid;
+}
+
+.essay-card-body-inner p + p {
+  margin-top: 1em;
+}
+
+/* Invisible in-flow placeholder - reserves the same vertical spot (via the
+   block's normal flex flow, now first in it) the real carousel visually
+   starts at, since that one now lives in its own portal outside this block -
+   see positionDesignCarousels. */
+.design-carousel-anchor {
+  /* Keep in sync with CAROUSEL_THUMB_SIZE in tabs.js. */
+  height: 96px;
+  /* Gap before the title/tags below it, sized to exactly fit the prev/next
+     step buttons (20px tall, matching their own font-size/line-height:1)
+     with no extra padding on either side - the same (zero) gap the buttons
+     themselves sit at right below the photos. The space between one
+     project's text and the NEXT project's photos is separate (the
+     .design-projects gap below), so this doesn't touch that. */
+  margin-bottom: 20px;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* The real carousel's box - a portal inside tabsContainer (not a descendant
+   of its panel), spanning the whole screen width so its photos are never
+   cut to their tab's rectangle, at its tab's content layer (see
+   updateDesignCarouselStacking/panelContentLayerZ). Its overflow only
+   serves the prev/next stepping (scrollLeft) and the enlarged photo's
+   reserved height. */
+.design-carousel-portal {
+  position: absolute;
+  /* Hidden, not auto: the row should only ever move via the prev/next
+     buttons (which still work - JS can set scrollLeft on a hidden-overflow
+     element just fine) - not by the user scrolling/swiping it directly. */
+  overflow-x: hidden;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* This box is taller than the actual photo row (see positionDesignCarousels
+     - it reserves room below for .design-carousel-thumb.is-current to grow
+     into), so its own hit-box would otherwise sit on top of the project's title/tags
+     just below it and swallow hover/click meant for those. Not a hit target
+     itself - .design-carousel below re-enables pointer-events at exactly the
+     photo row's own height, so nothing changes for hover/click on the photos
+     themselves, and everything below the row reaches the block again. */
+  pointer-events: none;
+}
+
+.design-carousel-portal::-webkit-scrollbar {
+  display: none;
+}
+
+/* Prev/next step controls - a sibling of the portal (not a descendant of the
+   scrolling track), pinned under the first photo by positionDesignCarousels
+   so they stay put as the row steps sideways. Replace the row's old
+   drag/wheel scrolling entirely - stepping one photo at a time via
+   animateScrollLeft instead. */
+.design-carousel-nav {
+  position: absolute;
+  display: flex;
+  gap: 10px;
+  /* Its content layer doesn't take the pointer (and pointer-events is
+     inherited), so the arrows opt back in explicitly. */
+  pointer-events: auto;
+}
+
+/* One navigation control for the whole site (createNavControl in tabs.js):
+   the carousels' prev/next arrows and the open project's prev/next/close.
+   Same glyph size, hover, cursor and timing everywhere - each use only sets
+   its own color and position. */
+.nav-control {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  /* A third bigger than the 20px glyph, grown from its own center: a
+     transform, so the surrounding layout (the carousel nav's position, the
+     10px between its arrows, the anchor's 20px gap) stays exactly as it
+     was, and the hit-area scales with the glyph - no bigger. Under a
+     carousel, its ~3px of growth above stays inside the row's own 4px bottom
+     padding, clear of the photos. */
+  transform: scale(1.3333);
+  transform-origin: center center;
+  /* On hover, an orange block appears behind the symbol - the button's own
+     background, so it is exactly the symbol's box (glyph width x 1em, no
+     padding) at the same 1.3333 scale, centered on it, painted under the
+     glyph, and never a hit target of its own. The symbol's color never
+     changes. Same orange, timing and stepped easing as the project hover
+     bar (.design-hover-bar). */
+  background-color: transparent;
+  transition: background-color 0.15s steps(4, end);
+}
+
+.nav-control:hover {
+  background-color: var(--hover-orange);
+}
+
+.design-carousel-nav-btn {
+  /* The tab's own gray, on the project's #B3B3B3 band. */
+  color: var(--tab-open-bg);
+}
+
+.design-carousel {
+  display: flex;
+  gap: var(--project-media-gap);
+  /* Fixed to the actual photo height, not 100% of the taller portal - see
+     the pointer-events note on .design-carousel-portal above. Re-enables
+     pointer-events at this height only, so hovering/clicking still works
+     anywhere across the real photo row (thumbs and the gaps between them),
+     while the empty reserved space (for the current thumb's upward growth)
+     doesn't block whatever sits underneath it. Pinned to the portal's own
+     bottom edge (position:absolute here, since the portal establishes the
+     containing block) rather than sitting at its top by default flow - the
+     portal is taller than this row now (see positionDesignCarousels), and
+     the reserved space needs to be above the row, not below it, for the
+     current thumb to grow upward into. */
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 108px;
+  /* Every thumb's bottom edge pinned to the row's own bottom. */
+  align-items: flex-end;
+  /* The row now spans the whole screen width (its padding-left reaches back
+     to the screen's left edge - see positionDesignCarousels), so only the
+     photos themselves take the pointer (.design-carousel-thumb below) -
+     the empty padding never blocks whatever tab sits underneath it. */
+  pointer-events: none;
+  padding-bottom: 4px;
+  /* A block-level flex container's default width:auto fills its parent
+     rather than shrinking to its content - without this, the portal never
+     actually overflows (so there's nothing to drag/scroll), no matter how
+     much padding is added. max-content forces it to size to its own
+     content instead, so the extra padding-right below can do its job. */
+  width: max-content;
+  /* Extra slack on the right so there's always room to step sideways even
+     when the photos alone already fit - a full viewport, so a row stepped
+     all the way along keeps that offset (its scrollLeft never gets clamped)
+     while its tab slides left and its padding-left shrinks. */
+  padding-right: 100vw;
+}
+
+/* One size for every panel's carousel (Design and Photography share the
+   same layout) - keep in sync with CAROUSEL_THUMB_SIZE in tabs.js. The
+   enlarged "is-current" photo scales this same 96x108 base uniformly, so it
+   keeps its proportion instead of being stretched. */
+.design-carousel-thumb {
+  flex: 0 0 auto;
+  width: 96px;
+  height: 108px;
+  pointer-events: auto;
+  /* Nudges just the photos 7px right of their normal flex slot - a purely
+     visual offset (relative positioning), so it doesn't shift the anchor/nav,
+     which stay tracking the row's real (unshifted) layout position. Keep in
+     sync with CAROUSEL_THUMB_NUDGE_X in tabs.js. */
+  position: relative;
+  left: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  font-family: 'Roboto Light', sans-serif;
+  font-weight: 300;
+  font-size: 15px;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+  /* Pivot at the bottom-center point, so scaling grows purely upward (bottom
+     edge stays put, aligned with every other thumb's own bottom, all at the
+     same top-aligned height) and evenly left/right, never shifting
+     neighbors - those are unaffected since transform doesn't participate in
+     layout. The portal's own top/height are adjusted to match (see
+     positionDesignCarousels) to leave room above for this growth without it
+     being clipped. */
+  transform-origin: center bottom;
+  transition-property: transform;
+  transition-duration: 0.15s;
+  /* transition-timing-function is set per-thumb in JS (buildDesignProjects),
+     stepped/quantized to --tabs-grid-step like the rest of the site's motion -
+     see CAROUSEL_THUMB_HOVER_STEPS. */
+}
+
+/* A real photo (a project with `images` - see createProjectImage in
+   tabs.js): the thumb is exactly the photo, no placeholder box around it.
+   Its height is --carousel-photo-height (set in JS: the height that, once
+   enlarged, fills the portal's visible height exactly, so it's never
+   cropped); its width follows from the photo's own aspect ratio (set
+   inline), so wide photos are wider and tall ones narrower. The row's gap
+   between thumbs is unchanged, and every thumb keeps sitting on the row's
+   bottom edge. */
+.design-carousel-thumb.has-image {
+  width: auto;
+  height: var(--carousel-photo-height, 94px);
+  background: none;
+  border: 0;
+}
+
+/* Fills its (already correctly proportioned) box - contain, so even a
+   sub-pixel mismatch never crops or stretches it. */
+.project-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Not :hover - exactly one thumb per carousel is enlarged at a time: the one
+   currently sitting under the prev/next controls (see updateCarouselCurrent
+   in js/tabs.js), which is whichever photo stepping lands at that position,
+   not whatever the mouse happens to be over. */
+.design-carousel-thumb.is-current {
+  /* Keep in sync with CAROUSEL_THUMB_HOVER_SCALE in js/tabs.js. */
+  transform: scale(2.25);
+  /* Flex items get their own stacking context regardless of position, so
+     this alone lifts it above its (unscaled, still z-index:auto) neighbors
+     it now visually overlaps. */
+  z-index: 2;
+}
+
+/* Full-screen tint behind everything - sized to the whole page, but a lower
+   z-index than the (opaque, black) drawer keeps that unaffected by it.
+   Above #nameCanvas (z-index:1000) and its Designs-title ghosts (1001) too -
+   once the drawer's open, it and everything it's stacked with should read
+   as fully on top, with no glyph or leftover title bleeding through it. */
+.design-photo-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--under-layer-veil);
+  z-index: 1002;
+  opacity: 0;
+  pointer-events: none;
+  /* Stepped rather than eased - see .design-hover-bar's own comment. */
+  transition: var(--under-layer-veil-transition);
+}
+
+.design-photo-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Big-image viewer over the top ~75% of the screen (above the drawer below),
+   shown together with it - see openDesignPhotoDrawer/closeDesignPhotoDrawer.
+   No background of its own - the backdrop shows through it - it's only here
+   to lay out the image/arrows and to close on a click in that empty space. */
+.design-photo-viewer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* Flush with the screen's top edge. Its height (so every photo's size) is
+     what it was when it sat one text line (--project-detail-line) lower:
+     the whole view moved up that line, its bottom now meeting the drawer's
+     top, which grew up by the same line. */
+  top: 0;
+  bottom: calc(18vh + 10px + var(--project-detail-line));
+  z-index: 1003;
+  opacity: 0;
+  pointer-events: none;
+  /* Stepped rather than eased - see .design-hover-bar's own comment. */
+  transition: opacity 0.2s steps(4, end);
+}
+
+.design-photo-viewer.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  /* Its bare background closes the project (see the close-on-background
+     handlers in tabs.js). */
+  cursor: pointer;
+}
+
+.design-photo-viewer-stage {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 4 / 3;
+}
+
+/* Placeholder "image" - fully opaque (unlike the tinted background around
+   it), standing in for a real <img> once real photos exist. Every photo in
+   the project gets one of these (created up front), each filling the whole
+   stage but shifted via translateX - see layoutPhotoStack, which is also
+   what sets transition-timing-function per element. */
+.design-photo-viewer-image {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 2px solid #999;
+  box-sizing: border-box;
+  opacity: 1;
+  color: #565656;
+  font-weight: 300;
+  font-family: 'Roboto Light', sans-serif;
+  font-size: 48px;
+  /* The current photo isn't a link (clicking it does nothing)... */
+  cursor: default;
+  /* No CSS transition: its motion is the tab-panel slide's own stepped
+     animation, run in JS (layoutPhotoStack/runSteppedAnimation). */
+}
+
+/* ...but any photo under another one is: clicking its visible part makes
+   it the current photo. */
+.design-photo-viewer-image.is-below {
+  cursor: pointer;
+}
+
+/* The white under-layer veil: a real white layer over the photo (not the
+   photo faded), shown while any other photo lies over this one
+   (.is-below - see updatePhotoStackDepth), with the same color and the
+   same stepped fade as the open-project backdrop. Purely visual: clicks go
+   through it to the photo. */
+.design-photo-viewer-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--under-layer-veil);
+  opacity: 0;
+  pointer-events: none;
+  transition: var(--under-layer-veil-transition);
+}
+
+.design-photo-viewer-image.is-below::after {
+  opacity: 1;
+}
+
+/* A real photo in the open view: the stage's full height (the placeholder's
+   own height) and its own width from its aspect ratio (set inline) - not
+   the placeholder's 4:3 box - with no box, border or fill around it. The
+   stack's offset between photos (DESIGN_PHOTO_STACK_OFFSET) is unchanged. */
+.design-photo-viewer-image.has-image {
+  right: auto;
+  width: auto;
+  background: none;
+  border: 0;
+}
+
+
+/* Bottom drawer shown on clicking a Designs project (or one of its thumbs) -
+   see openDesignPhotoDrawer/closeDesignPhotoDrawer. Slides up over the
+   bottom quarter of the viewport; a plain translateY off/on-screen toggle
+   rather than opacity, since it's meant to occupy real screen space, not
+   overlay-fade over everything like the old single-image lightbox did. */
+.design-photo-drawer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* One text line (--project-detail-line) taller than it was, grown upward
+     as the viewer above moved up by that line: its content keeps its
+     layout from the drawer's top, so the text ends a line higher and that
+     line is the drawer's extra air at the bottom. */
+  height: calc(18vh + 10px + var(--project-detail-line));
+  /* Every project's view, Design and Photography alike. Its text is
+     #E5E5E5 (title, location, format, both description columns). */
+  background: #b3b3b3;
+  z-index: 1004;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  transition-property: transform;
+  transition-duration: 0.3s;
+  /* Stepped rather than eased, to match the rest of the site's pixelated
+     motion - JS (positionDesignPhotoDrawer) tightens the step count to line
+     up with --tabs-grid-step once the drawer's real travel distance (its
+     own height) is known. */
+  transition-timing-function: steps(12, end);
+}
+
+.design-photo-drawer.is-open {
+  transform: translateY(0);
+  /* Its bare background closes the project, like the viewer's. */
+  cursor: pointer;
+}
+
+/* Small preview carousel across the top of the drawer - flush against its
+   top edge, centered, at a quarter of its earlier size (40% -> 10% height,
+   which shrinks the thumbs themselves too since they're sized off it). */
+.design-photo-drawer-track {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 10%;
+  margin-top: 0px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  overflow-x: auto;
+  cursor: grab;
+}
+
+.design-photo-drawer-track.is-dragging {
+  cursor: grabbing;
+}
+
+.design-photo-drawer-item {
+  flex: 0 0 auto;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f3f2f0;
+  font-family: 'Roboto Light', sans-serif;
+  font-weight: 300;
+  font-size: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* A real photo in the open view's preview strip: the strip's height, its
+   own width from its aspect ratio (set inline), no fill; the border stays
+   (transparent) only so the active photo's orange outline still shows. */
+.design-photo-drawer-item.has-image {
+  background: none;
+  border-color: transparent;
+}
+
+.design-photo-drawer-item.is-active {
+  border-color: var(--hover-orange);
+}
+
+/* The open project's prev/next/close (.nav-control - the carousels' own
+   arrows): one line with the preview strip, laid over the drawer and never
+   in its flow, so the strip, the thumbs and the text columns stay exactly
+   where they are. left/top are set from the real geometry in JS
+   (positionDrawerControls): arrows just outside the first and last thumb,
+   the X 16px in from the screen's right edge, all three centered
+   on the thumbs. Inside the drawer, so they ride its slide and sit above
+   every photo of the viewer. The drawer's own text color (#E5E5E5), the
+   carousel arrows' gray on the same #B3B3B3. */
+.design-photo-drawer-control {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--tab-open-bg);
+}
+
+/* Two text columns filling the rest of the drawer - see
+   openDesignPhotoDrawer for how their x position is set to match the
+   opened project's own title/year x's. */
+.design-photo-drawer-columns {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* All the text columns, as one block, one text line lower (the preview
+     strip above stays put); the drawer's own size is unchanged, so the
+     block just ends where it always did. */
+  margin-top: var(--project-detail-line);
+}
+
+.design-photo-drawer-column {
+  position: absolute;
+  top: -7px;
+  bottom: 8px;
+  width: 280px;
+  overflow-y: auto;
+  color: #e5e5e5;
+  font-family: 'Roboto Light', sans-serif;
+  font-weight: 300;
+  font-size: var(--project-detail-font-size);
+  line-height: var(--project-detail-line-height);
+  /* Text, not the close-on-background surface around it. */
+  cursor: auto;
+}
+
+/* A project's optional link (project.link - none uses one at the moment):
+   its own last line after the description, flush with the right edge of
+   whichever column the description ends in (see flowDrawerDescription).
+   Same size/line-height as the description; only weight, color and the
+   permanent underline differ - the Contact tab's Instagram link blue. */
+.design-photo-drawer-link-line {
+  text-align: right;
+}
+
+/* When its own line would run past the limit: floated to the right end of
+   the description's last line instead. */
+.design-photo-drawer-link-line.is-inline {
+  float: right;
+  margin-left: 1em;
+}
+
+.design-photo-drawer-link,
+.design-photo-drawer-link:visited,
+.design-photo-drawer-link:hover {
+  font-family: 'Roboto Bold', sans-serif;
+  font-weight: 700;
+  color: #0022ff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Linked words inside a description (project.inlineLinks): the text's own
+   font, size, weight and line-height - only the blue and the permanent
+   underline differ, so the paragraph's layout never shifts. */
+.design-photo-drawer-inline-link,
+.design-photo-drawer-inline-link:visited,
+.design-photo-drawer-inline-link:hover {
+  font: inherit;
+  color: #0022ff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* A studies item's project title, opening its description's first line
+   (see flowDrawerDescription's heading): the description's own size and
+   line-height, only bold. Its project type follows in the regular text. */
+.design-photo-drawer-heading {
+  font-family: 'Roboto Bold', sans-serif;
+  font-weight: 700;
+}
+
+/* Twice the shared column width, for this column only. */
+.design-photo-drawer-column-wide {
+  width: 420px;
+  /* Never a scrollbar: the text is split between the two description
+     columns to fit (flowDrawerDescription) - and a scrollbar appearing
+     mid-measurement would narrow the column and skew that split. */
+  overflow: hidden;
+}
+
+/* The title column: its title uses the tab titles' per-letter cells (see
+   setDrawerTitle) and can run wider than 280px - it's never cut or given a
+   scrollbar. It only ever overhangs the row above the description columns
+   (those start level with the location line, below it), so nothing
+   overlaps. */
+.design-photo-drawer-column:not(.design-photo-drawer-column-wide) {
+  overflow: visible;
+}
+
+/* --------------------------------------------------------------------
+   The old animated rect-morph system (every project's own
+   .design-project-rect, and the .rect-morph-ghost stand-ins that fly
+   between them and About's own ribbon - see the "About ribbon <->
+   project-rectangles morph" section of tabs.js) is visually switched off,
+   everywhere, in every state - replaced by each tab's own permanent, fixed
+   .tab-color-block instead. Their own JS (beginRectMorph/
+   updateRectMorphFrame/refreshRectVisibility etc.) still runs untouched -
+   only hidden here, not removed, so the whole effect can come back later by
+   deleting this block. About's own .tab-marquee is the one exception - the
+   sliding text ribbon itself is still wanted, just without the colored
+   rectangle it used to sit on top of (see .tab-marquee's own
+   background:transparent below). */
+.design-project-rect,
+.rect-morph-ghost {
+  display: none;
+}
+
+/* Left column's own layout: title+year on one row, then a reserved (for
+   now empty) spot for the project's format underneath. */
+.design-photo-drawer-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+  /* Keeps the row the height it had with the previous, larger title (its
+     1.125x glyph size at the column's 1.4 line-height), so the location
+     line below - and the description columns, which align to it - keep
+     their vertical position now that the title uses the tabs' own size. */
+  min-height: calc(max(7px, calc(var(--glyph-cell-size, 20px) * 1.125)) * 1.4);
+}
+
+/* Typography comes entirely from .design-project-title (the element carries
+   both classes and the same per-letter spans - see setDrawerTitle), so it
+   matches the project's title in its tab exactly; only the color differs. */
+.design-photo-drawer-title {
+  color: #e5e5e5;
+  /* Not the column's inherited 1.4 - the tab title's own. */
+  line-height: normal;
+  /* Never squeezed/wrapped by a long credit sharing its row - the credit
+     is what moves (alignDrawerCredit), never the title. */
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* A project's credit on its title's line (e.g. The House of the Web's
+   co-designers): baseline-aligned by the row, in the drawer text's own
+   Roboto (local /typo) at its size and color, never wrapping. Its
+   margin-left is set in JS (alignDrawerCredit) so its right edge lands on
+   the right description column's; the title doesn't move. Empty for
+   projects without one. */
+.design-photo-drawer-credit {
+  font-family: 'Roboto Light', sans-serif;
+  font-weight: 300;
+  font-size: var(--project-detail-font-size);
+  color: #e5e5e5;
+  white-space: nowrap;
+}
+
+.design-photo-drawer-credit:empty {
+  display: none;
+}
+
+.design-photo-drawer-location {
+  /* Keeps its line when empty (a studies item with no info), so stepping
+     between items never shifts the lines below it. */
+  min-height: 1.4em;
+  font-family: 'Roboto Light', sans-serif;
+  font-weight: 300;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #e5e5e5;
+}
+
+.design-photo-drawer-format {
+  /* Two blank lines' worth of gap above it, at this line's own line-height. */
+  margin-top: calc(1.4 * 2em);
+  min-height: 1.4em;
+  font-family: 'Roboto Light', sans-serif;
+  font-weight: 300;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #e5e5e5;
+}
+
+/* Full-viewport-width highlight shown while hovering a Designs project - see
+   showDesignHoverBar/hideDesignHoverBar. top/height and z-index are set in
+   JS: it sits above every panel (including the active one), so its own
+   title/year ghosts (below) are what keep those two readable on top of it. */
+.design-hover-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  background: var(--hover-orange);
+  pointer-events: none;
+  opacity: 0;
+  /* Stepped rather than eased, to match the rest of the site's rasterized
+     motion (the panel slide, the carousel thumb's own hover-scale, the
+     photo drawer's slide) instead of a plain smooth cross-fade. */
+  transition: opacity 0.15s steps(4, end);
+}
+
+/* Purely visual, even while shown - it sits over the whole title row, so
+   taking the pointer would turn empty space into a click target and steal
+   clicks meant for the title, photos and arrows underneath. */
+.design-hover-bar.is-visible {
+  opacity: 1;
+}
+
+/* Live clones of the hovered project's title/year, stamped at their exact
+   on-screen position with a higher z-index (set in JS) than the bar, so they
+   stay visibly on top of it while the rest of the panel is covered. */
+.design-hover-ghost {
+  pointer-events: none;
+}
+
+/* While hovering, the project name gets the same dotted underline the tab
+   titles show on hover/active - the ghost only exists for as long as the
+   bar is shown, so this needs no separate :hover trigger of its own. */
+.design-hover-ghost.design-project-title {
+  border-bottom: 2.25px dotted currentColor;
+  padding-bottom: 2px;
+}
