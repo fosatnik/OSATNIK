@@ -19,10 +19,23 @@ const LETTER_GAP = 1.5;
 const WORD_GAP_ROWS = 2.5;
 
 const CENTER_ZONE = 0.22;
-// Slightly bigger jumps than the original 22 - same grid tabs.js's own
-// panel slide snaps to (--tabs-grid-step, style.css), kept in step with it
-// there too.
-const GRID_STEP = 26;
+// The rasterized motion's step (the glyphs' snap() and, through
+// --tabs-grid-step, every stepped motion in tabs.js), in glyph cells - so
+// the jumps keep the same size relative to the layout on every screen.
+// 26px at the reference viewport's 21.88px cell. Recomputed in layout().
+const GRID_STEP_CELLS = 26 / 21.884615;
+let GRID_STEP = 26;
+// Upper limit for the glyph cell - the one size every cell-based dimension
+// derives from (tab width, tab/project titles, the OSATNIK grid, the
+// left margin). Below it the cell follows the viewport proportionally; above
+// it (very large monitors) it stops growing so tabs and titles don't become
+// oversized.
+const GLYPH_CELL_MAX = 34;
+// The screen's left margin (where the collapsed OSATNIK column lives, and
+// where the open tab stack starts): this many glyph cells for the column,
+// plus a small fixed gutter around it. Published as --tabs-left-margin.
+const OSATNIK_COLUMN_CELLS = 8;
+const OSATNIK_COLUMN_GUTTER = 3;
 const TRANSITION_MS = 350;
 // Quantizes the resetting/triggered transitions' own elapsed time into
 // chunks this long (matching tabs.js's own --tabs-step-interval) instead of
@@ -116,20 +129,17 @@ let boxRows = 0;
 let originX = 0;
 let originY = 0;
 
-// Self-contained (doesn't depend on tabs.js, which may not have loaded yet
-// the first time layout()/buildBoxTargets run) read of a plain CSS custom
-// property already defined in style.css, in px.
-function readCssPx(varName, fallback) {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-  const v = parseFloat(raw);
-  return isNaN(v) ? fallback : v;
+// The screen's left margin for the current cell size - see
+// OSATNIK_COLUMN_CELLS. tabs.js reads it back as --tabs-left-margin.
+function tabsLeftMargin(cell) {
+  return Math.round(cell * OSATNIK_COLUMN_CELLS + OSATNIK_COLUMN_GUTTER);
 }
 
 // The collapsed target every particle - both FEDERICO's own and OSATNIK's -
 // animates to once triggered. A vertical column, one whole letter per row-
 // band (never rotated), pinned to the screen's own left margin - the same
 // strip tabs.js's own computeTargets() keeps free of any real tab panel
-// (--reset-tab-width + --tabs-left-shift, read live, never hardcoded) -
+// (tabsLeftMargin - --tabs-left-margin, in glyph cells) -
 // instead of a single horizontal row across the top.
 //
 // Unlike the landing's own FEDERICO/OSATNIK block (drawn from the negative-
@@ -253,7 +263,7 @@ const OSATNIK_LETTERS = {
 function buildBoxTargets(totalParticles, viewportH) {
   const word = 'OSATNIK';
   const numLetters = word.length;
-  const marginWidth = readCssPx('--reset-tab-width', 28) + readCssPx('--tabs-left-shift', 0);
+  const marginWidth = tabsLeftMargin(cellSize);
 
   // Same cell size the landing's own FEDERICO/OSATNIK block already uses
   // this frame - never shrunk to force the word to fit (per the request);
@@ -338,7 +348,8 @@ function layout() {
 
   const maxCompW = w * 0.75;
   const maxCompH = h * 0.525;
-  cellSize = Math.min(maxCompW / totalWidth, maxCompH / totalHeight);
+  cellSize = Math.min(maxCompW / totalWidth, maxCompH / totalHeight, GLYPH_CELL_MAX);
+  GRID_STEP = cellSize * GRID_STEP_CELLS;
 
   const compW = totalWidth * cellSize;
   const compH = totalHeight * cellSize;
@@ -369,6 +380,10 @@ function layout() {
   root.setProperty('--osatnik-block-width', boxWidth + 'px');
   root.setProperty('--landing-tagline-top', (originY + compH + 10) + 'px');
   root.setProperty('--glyph-cell-size', cellSize + 'px');
+  // The cell-derived lengths tabs.js and style.css build on - published
+  // here, where the cell is decided, so they're always in step with it.
+  root.setProperty('--tabs-left-margin', tabsLeftMargin(cellSize) + 'px');
+  root.setProperty('--tabs-grid-step', GRID_STEP + 'px');
 
   particles = allCells.map((cell, i) => {
     const homeX = originX + cell.col * cellSize;
@@ -499,7 +514,9 @@ const REPEL_SUPPORTED = typeof window.matchMedia === 'function' &&
 // How close the cursor has to get to a glyph's own current cell before it
 // starts hopping away - large enough that actually pinning one down by
 // chasing it is genuinely difficult.
-const REPEL_RADIUS = 110;
+// In glyph cells (110px at the reference cell), so the reach scales with
+// the column it acts on.
+const REPEL_RADIUS_CELLS = 5;
 // How long one single cell-to-cell hop's own draw-time interpolation takes,
 // quantized via the exact same stepped-elapsed/TRANSITION_STEP_MS technique
 // every other transition in this file already uses (see tick()'s
@@ -785,7 +802,7 @@ function tick(now) {
             const py = cellPixelY(p.cellRow);
             const dist = Math.hypot(px - mouseX, py - mouseY);
             const atBase = p.cellRow === p.baseRow && p.cellCol === p.baseCol;
-            if (dist < REPEL_RADIUS) {
+            if (dist < REPEL_RADIUS_CELLS * cellSize) {
               const dest = pickEscapeCell(p, mouseX, mouseY);
               if (dest) startHopTo(p, dest.row, dest.col, now);
             } else if (!atBase) {

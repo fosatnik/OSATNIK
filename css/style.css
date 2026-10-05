@@ -59,6 +59,53 @@
      another photo - and how it comes and goes. */
   --under-layer-veil: rgba(255, 255, 255, 0.5);
   --under-layer-veil-transition: opacity 0.2s steps(4, end);
+
+  /* LAYOUT ANCHORS. The site's geometry is built from a few shared
+     references instead of screen coordinates. The ones that depend on the
+     live viewport are published by JS (values here are only fallbacks):
+       --glyph-cell-size   the unit tabs, titles and the OSATNIK grid are
+                           built on (script.js layout)
+       --tabs-left-margin  the OSATNIK column's margin, in cells (script.js)
+       --tab-width         one closed tab: 3 glyph cells (tabs.js)
+       --tab-count         how many side tabs
+       --content-origin-x  Photography's open color block's right edge -
+                           Contact's left, the enlarged photos' left
+       --content-left      CONTENT_LEFT, the running text's axis
+       --description-right-inset
+                           DESCRIPTION_RIGHT's distance from the screen's
+                           right edge (the closed tabs from Photography on)
+     See publishLayoutAnchors in tabs.js. */
+  --tabs-left-margin: 178px;
+  --tab-width: 66px;
+  --tab-count: 3;
+  --content-origin-x: 551px;
+  --content-left: 604px;
+  --description-right-inset: 66px;
+
+  /* Text measures: running text has a fixed size, so it keeps a fixed line
+     length on every screen (never wider than the room the open tab leaves -
+     see textMeasure in tabs.js). About's body; a project's tags. */
+  --about-text-measure: 500px;
+  --project-text-measure: 565px;
+  /* A project's year column, on its title's own letter-cell grid: this many
+     glyph cells from the title's start. */
+  --project-year-cells: 32.56;
+
+  /* The open project's view: the drawer's height (the viewer above ends where
+     it begins), its text grid's tracks and gaps. The description's two
+     columns take up to --drawer-description-column-width each and end on
+     DESCRIPTION_RIGHT; the location/format column, from CONTENT_LEFT less
+     --drawer-meta-shift, takes the rest, never less than its min width - on
+     narrower screens the description columns narrow instead. */
+  --drawer-height: calc(18vh + 10px + var(--project-detail-line));
+  --drawer-meta-shift: 20px;
+  --drawer-meta-min-width: 157px;
+  --drawer-meta-measure: 280px;
+  --drawer-description-column-width: 420px;
+  --drawer-description-gap: 30px;
+  /* The preview strip's thumbnail gap - also the arrows' distance from the
+     first/last thumbnail. */
+  --drawer-thumb-gap: 12px;
 }
 
 html, body {
@@ -76,19 +123,18 @@ html {
 
 /* The landing photo, on its own layer under everything (the glyph canvas
    still blends over it), resting on the screen's left and bottom edges.
-   Its width is exactly the distance from the screen's left edge to the
-   About Me tab's left edge on the landing and its height follows from its
-   own aspect ratio ("<width> auto" in --landing-photo-size, set by
-   sizeLandingPhoto in tabs.js) - scaled proportionally, never stretched,
-   never cropped by CSS. Until that's measured, it fits the screen
-   (contain). Whatever the photo doesn't reach shows the root's base
-   color. */
+   PHOTO_RIGHT = ABOUT_LEFT: on the landing every side tab is closed and
+   packed against the screen's right edge, so About's left edge is the
+   screen width less --tab-count tab widths - the photo's width is exactly
+   that, and its height follows from its own aspect ratio (auto) - scaled
+   proportionally, never stretched, never cropped by CSS. Whatever the photo
+   doesn't reach shows the root's base color. */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   background: url('../images/media/login.png') left bottom no-repeat;
-  background-size: var(--landing-photo-size, contain);
+  background-size: calc(100% - var(--tab-count) * var(--tab-width)) auto;
   z-index: -1;
   pointer-events: none;
 }
@@ -149,6 +195,7 @@ body::before {
   display: block;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   pointer-events: none;
   /* Always below .tabs-container (z-index:1) - the tabs/solapas must never
      have a glyph visually pass over them, whether they're closed slivers on
@@ -210,14 +257,13 @@ body::before {
   --tabs-transition-duration: 320ms;
   --tabs-intro-duration: 420ms;
   --tabs-transition-ease: cubic-bezier(0.42, 0, 0.58, 1);
-  /* Slightly bigger jumps, checked slightly less often (both were
-     22px/35ms) - same grid step size as script.js's own GRID_STEP, kept in
-     step with it, for a bit more of a "rasterized" feel on both the panel
-     slide and the glyph transitions alike, without overdoing it. */
+  /* The rasterized motion's step - script.js sets it from the glyph cell
+     (GRID_STEP_CELLS), so jumps keep their size relative to the layout;
+     26px is the reference value. Checked every --tabs-step-interval. */
   --tabs-grid-step: 26px;
   --tabs-step-interval: 45ms;
+  /* The invisible "back to start" strip at the screen's left edge. */
   --reset-tab-width: 28px;
-  --tabs-left-shift: 150px;
 
   /* Every tab's own surface, open or closed alike - a plain, neutral gray,
      the same for all of them (see .tab-panel). Each tab's own fixed colors
@@ -226,7 +272,7 @@ body::before {
   --tab-open-bg: #e5e5e5;
   /* The space between two photos: the project carousels' gap and the
      galleries' grid streets (.personal-photos-grid) - one shared value. */
-  --project-media-gap: 35px;
+  --carousel-gap: 35px;
   /* The dark gray rectangle behind every project's title
      (.design-project-band.is-caption). */
   --project-caption-bg: #b3b3b3;
@@ -301,16 +347,22 @@ body::before {
 
 /* The Contact tab (buildContactTab/positionContactTab in tabs.js): a side
    tab turned horizontal, pinned to the top of the screen and unrolling
-   downward. left/width/height are set in JS from existing references (see
+   downward. its left/width come from the layout anchors (below), its height from JS (see
    there). Its title is a plain .tab-title, so it shares the tab titles' type
    and dotted underline. The whole strip is the click target; overflow:hidden
    so whatever it holds is only revealed as it unrolls. */
 .contact-tab {
   position: absolute;
   top: 0;
-  /* left is set in JS; the strip always runs from there to the screen's
-     right edge. */
+  /* CONTACT_LEFT = Photography's open color block's right edge
+     (--content-origin-x); CONTACT_RIGHT = the screen's right edge. Its
+     width is whatever lies between. */
+  left: var(--content-origin-x);
   right: 0;
+  /* The title and the info block share CONTENT_LEFT, measured from the
+     strip's own left edge; the orange handle is one closed tab tall. */
+  --contact-text-left: calc(var(--content-left) - var(--content-origin-x));
+  --contact-handle-height: var(--tab-width);
   /* CONTACT_LAYER: the top of tabsContainer - above every tab, every
      project in the list and the project hover bar (9/10); below only the
      open-project view (PROJECT_DETAIL_LAYER - drawer/viewer/backdrop, on
@@ -327,7 +379,7 @@ body::before {
 
 /* CONTACT_ORANGE_HANDLE: the orange rectangle (the site's hover orange,
    --hover-orange) with the title in it - always the closed strip's own
-   size (--contact-handle-height, set in JS), resting on the strip's bottom
+   size (--contact-handle-height - one tab width), resting on the strip's bottom
    edge, so the strip's height animation carries it down and back up as one
    piece. While closed it covers the whole strip - exactly the orange
    rectangle the landing always showed. */
@@ -343,7 +395,7 @@ body::before {
 /* Pinned to the handle's bottom edge, so it travels with it. Its color is
    the base --tab-title-color (Contact sets no override of its own). */
 .contact-tab .tab-title {
-  /* --contact-text-left is set in JS (positionContactTab): the Design
+  /* CONTENT_LEFT (--contact-text-left, on .contact-tab) - the Design
      project titles' x - shared with the info block above it. */
   position: absolute;
   left: var(--contact-text-left, 0px);
@@ -928,13 +980,13 @@ body::before {
    (--personal-photo-width/-height, sized in JS - sizePersonalPhotos), 4
    columns on desktop (--personal-photo-columns), starting at the carousels'
    left edge. Between every two cells, across and down, a street exactly the
-   carousels' photo gap (--project-media-gap - the same shared value). */
+   carousels' photo gap (--carousel-gap - the same shared value). */
 .personal-photos-grid {
   display: grid;
   grid-template-columns: repeat(var(--personal-photo-columns, 1), var(--personal-photo-width, 216px));
   grid-auto-rows: var(--personal-photo-height, 212px);
   justify-content: start;
-  gap: var(--project-media-gap);
+  gap: var(--carousel-gap);
   /* No visible lines: the grid organizes the media (cells, streets, empty
      cells) without drawing itself. */
 }
@@ -967,7 +1019,6 @@ body::before {
 .design-project-header {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: 12px;
   /* .design-project-rect is position:fixed (a positioned, z-index:auto
      layer), which paints above ordinary in-flow content like this header
@@ -1012,8 +1063,13 @@ body::before {
   text-transform: lowercase;
   color: inherit;
   white-space: nowrap;
-  position: relative;
-  left: 235px;
+  /* The year column: --project-year-cells letter cells from the title's
+     start, on the title's own row (same font and size as the title, so
+     top-aligned means baseline-aligned). It scales with the title's type
+     instead of sitting at a screen-dependent distance. */
+  position: absolute;
+  top: 0;
+  left: calc(var(--glyph-cell-size, 20px) * var(--project-year-cells));
 }
 
 .design-project-tags {
@@ -1264,7 +1320,7 @@ body::before {
 
 .design-carousel {
   display: flex;
-  gap: var(--project-media-gap);
+  gap: var(--carousel-gap);
   /* Fixed to the actual photo height, not 100% of the taller portal - see
      the pointer-events note on .design-carousel-portal above. Re-enables
      pointer-events at this height only, so hovering/clicking still works
@@ -1415,7 +1471,7 @@ body::before {
      the whole view moved up that line, its bottom now meeting the drawer's
      top, which grew up by the same line. */
   top: 0;
-  bottom: calc(18vh + 10px + var(--project-detail-line));
+  bottom: var(--drawer-height);
   z-index: 1003;
   opacity: 0;
   pointer-events: none;
@@ -1517,7 +1573,7 @@ body::before {
      as the viewer above moved up by that line: its content keeps its
      layout from the drawer's top, so the text ends a line higher and that
      line is the drawer's extra air at the bottom. */
-  height: calc(18vh + 10px + var(--project-detail-line));
+  height: var(--drawer-height);
   /* Every project's view, Design and Photography alike. Its text is
      #E5E5E5 (title, location, format, both description columns). */
   background: #b3b3b3;
@@ -1540,20 +1596,43 @@ body::before {
   cursor: pointer;
 }
 
-/* Small preview carousel across the top of the drawer - flush against its
-   top edge, centered, at a quarter of its earlier size (40% -> 10% height,
-   which shrinks the thumbs themselves too since they're sized off it). */
-.design-photo-drawer-track {
+/* The drawer's control row, across its top (10% of its height):
+   ‹ [preview strip] ›   centered on the screen (the middle track of a
+   1fr / content / 1fr grid), and the X at the row's end. One row, one
+   center line (align-items) - the arrows, the thumbnails and the X share
+   it instead of each having its own top. */
+.design-photo-drawer-controls {
   flex: 0 0 auto;
+  height: 10%;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, max-content) 1fr;
+  grid-template-rows: 100%;
+  align-items: center;
+}
+
+/* The arrows either side of the strip, one thumbnail gap away from its
+   first/last thumbnail (the strip's own gap). */
+.design-photo-drawer-nav {
+  grid-column: 2;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  height: 10%;
-  margin-top: 0px;
-  padding: 0 16px;
-  box-sizing: border-box;
+  gap: var(--drawer-thumb-gap);
+  height: 100%;
+  min-width: 0;
+}
+
+/* The preview strip: the thumbnails at the row's full height. Dragged
+   sideways when it holds more than fits. Its translateY is optical only:
+   the ‹ › glyphs ride low in their box, so the strip comes down to their
+   drawn middle (--nav-ink-offset, measured in positionDrawerControls). */
+.design-photo-drawer-track {
+  display: flex;
+  align-items: center;
+  gap: var(--drawer-thumb-gap);
+  height: 100%;
+  min-width: 0;
   overflow-x: auto;
+  transform: translateY(var(--nav-ink-offset, 0px));
   cursor: grab;
 }
 
@@ -1591,39 +1670,63 @@ body::before {
 }
 
 /* The open project's prev/next/close (.nav-control - the carousels' own
-   arrows): one line with the preview strip, laid over the drawer and never
-   in its flow, so the strip, the thumbs and the text columns stay exactly
-   where they are. left/top are set from the real geometry in JS
-   (positionDrawerControls): arrows just outside the first and last thumb,
-   the X 16px in from the screen's right edge, all three centered
-   on the thumbs. Inside the drawer, so they ride its slide and sit above
-   every photo of the viewer. The drawer's own text color (#E5E5E5), the
-   carousel arrows' gray on the same #B3B3B3. */
+   arrows), in the control row. Inside the drawer, so they ride its slide
+   and sit above every photo of the viewer. The carousel arrows' gray on the
+   same #B3B3B3. */
 .design-photo-drawer-control {
-  position: absolute;
-  top: 0;
-  left: 0;
+  flex: 0 0 auto;
   color: var(--tab-open-bg);
 }
 
-/* Two text columns filling the rest of the drawer - see
-   openDesignPhotoDrawer for how their x position is set to match the
-   opened project's own title/year x's. */
+/* The arrows grow (.nav-control's scale) away from the strip, so their
+   visible inner edge is exactly one thumbnail gap from it. */
+.design-photo-drawer-nav > .nav-control:first-child {
+  transform-origin: right center;
+}
+
+.design-photo-drawer-nav > .nav-control:last-child {
+  transform-origin: left center;
+}
+
+/* X_RIGHT = DESCRIPTION_RIGHT: the row's end, inset by the same distance
+   as the description's right edge. It grows (.nav-control's scale) from
+   its right edge, so its visible right edge is that line too. */
+.design-photo-drawer-close {
+  grid-column: 3;
+  justify-self: end;
+  margin-right: var(--description-right-inset);
+  transform-origin: right center;
+}
+
+/* The drawer's text, one grid filling the rest of the drawer:
+     row 1  the title row, across every column - its credit ends on the
+            grid's right edge;
+     row 2  location/format | description | description.
+   Left edge: CONTENT_LEFT less --drawer-meta-shift. Right edge:
+   DESCRIPTION_RIGHT. The description's two columns take up to
+   --drawer-description-column-width each; the first column takes the rest
+   (never under --drawer-meta-min-width - below that the description
+   columns narrow instead of running into it). Vertically: one text line
+   (--project-detail-line) below the control row, less 7px, so the title's
+   letters sit where the line starts; 8px of air under the columns. */
 .design-photo-drawer-columns {
-  position: relative;
   flex: 1 1 auto;
   min-height: 0;
-  /* All the text columns, as one block, one text line lower (the preview
-     strip above stays put); the drawer's own size is unchanged, so the
-     block just ends where it always did. */
-  margin-top: var(--project-detail-line);
+  display: grid;
+  grid-template-columns:
+    minmax(var(--drawer-meta-min-width), 1fr)
+    repeat(2, minmax(0, var(--drawer-description-column-width)));
+  grid-template-rows: auto minmax(0, 1fr);
+  column-gap: var(--drawer-description-gap);
+  margin:
+    calc(var(--project-detail-line) - 7px)
+    var(--description-right-inset)
+    8px
+    calc(var(--content-left) - var(--drawer-meta-shift));
 }
 
 .design-photo-drawer-column {
-  position: absolute;
-  top: -7px;
-  bottom: 8px;
-  width: 280px;
+  min-height: 0;
   overflow-y: auto;
   color: #e5e5e5;
   font-family: 'Roboto Light', sans-serif;
@@ -1680,21 +1783,18 @@ body::before {
   font-weight: 700;
 }
 
-/* Twice the shared column width, for this column only. */
+/* The description columns: never a scrollbar - the text is split between
+   the two to fit (flowDrawerDescription) - and a scrollbar appearing
+   mid-measurement would narrow the column and skew that split. */
 .design-photo-drawer-column-wide {
-  width: 420px;
-  /* Never a scrollbar: the text is split between the two description
-     columns to fit (flowDrawerDescription) - and a scrollbar appearing
-     mid-measurement would narrow the column and skew that split. */
   overflow: hidden;
 }
 
-/* The title column: its title uses the tab titles' per-letter cells (see
-   setDrawerTitle) and can run wider than 280px - it's never cut or given a
-   scrollbar. It only ever overhangs the row above the description columns
-   (those start level with the location line, below it), so nothing
-   overlaps. */
+/* The location/format column: its lines keep their own measure
+   (--drawer-meta-measure), even where that runs past the grid track into
+   the gap - never wrapped, cut or given a scrollbar. */
 .design-photo-drawer-column:not(.design-photo-drawer-column-wide) {
+  width: var(--drawer-meta-measure);
   overflow: visible;
 }
 
@@ -1716,18 +1816,25 @@ body::before {
   display: none;
 }
 
-/* Left column's own layout: title+year on one row, then a reserved (for
-   now empty) spot for the project's format underneath. */
+/* The title row, across the whole text grid (row 1): the title, then the
+   project's credit pushed to the grid's right edge (DESCRIPTION_RIGHT).
+   The drawer text's size and line-height, so the credit's line box is the
+   description's. */
 .design-photo-drawer-title-row {
+  grid-column: 1 / -1;
   display: flex;
   align-items: baseline;
   gap: 12px;
   margin-bottom: 12px;
+  font-size: var(--project-detail-font-size);
+  line-height: var(--project-detail-line-height);
   /* Keeps the row the height it had with the previous, larger title (its
      1.125x glyph size at the column's 1.4 line-height), so the location
      line below - and the description columns, which align to it - keep
      their vertical position now that the title uses the tabs' own size. */
   min-height: calc(max(7px, calc(var(--glyph-cell-size, 20px) * 1.125)) * 1.4);
+  /* Text, not the close-on-background surface around it. */
+  cursor: auto;
 }
 
 /* Typography comes entirely from .design-project-title (the element carries
@@ -1735,21 +1842,21 @@ body::before {
    matches the project's title in its tab exactly; only the color differs. */
 .design-photo-drawer-title {
   color: #e5e5e5;
-  /* Not the column's inherited 1.4 - the tab title's own. */
+  /* Not the row's 1.4 - the tab title's own. */
   line-height: normal;
-  /* Never squeezed/wrapped by a long credit sharing its row - the credit
-     is what moves (alignDrawerCredit), never the title. */
+  /* Never squeezed/wrapped by a long credit sharing its row. */
   flex-shrink: 0;
   white-space: nowrap;
 }
 
 /* A project's credit on its title's line (e.g. The House of the Web's
    co-designers): baseline-aligned by the row, in the drawer text's own
-   Roboto (local /typo) at its size and color, never wrapping. Its
-   margin-left is set in JS (alignDrawerCredit) so its right edge lands on
-   the right description column's; the title doesn't move. Empty for
-   projects without one. */
+   Roboto (local /typo) at its size and color, never wrapping.
+   CREDIT_RIGHT = DESCRIPTION_RIGHT: margin-left:auto pushes it to the
+   title row's end, which is the text grid's right edge. Empty for projects
+   without one. */
 .design-photo-drawer-credit {
+  margin-left: auto;
   font-family: 'Roboto Light', sans-serif;
   font-weight: 300;
   font-size: var(--project-detail-font-size);

@@ -12,12 +12,6 @@ const ABOUT_BODY_PARAGRAPHS = [
 // marquee anchor probe (see measureFrozenAnchorLeft), so the ribbon's
 // position never depends on whatever the actual About Me copy above says.
 const ABOUT_ANCHOR_REFERENCE_TEXT = 'Developing a multidisciplinary design practice through academic training and freelance work. Interested in the intersection of design, culture, and technology, with a focus on cultural strategy, communication, identity, and photography. Exploring how these fields can come together to create visual work that balances conceptual depth with aesthetic clarity.';
-// The paragraph's left edge sits at contentOriginX (shared with Design/
-// Photography - see sizeAboutBody). Its width is still what it's always
-// been - from this old left edge to half the window width minus 10px - so
-// moving it horizontally never re-wraps the text. Its y position is
-// untouched.
-const ABOUT_BODY_WIDTH_REFERENCE_LEFT_X = 344;
 // Reference measure the marquee anchors against (see measureFrozenAnchor) so
 // the ribbon's position stays put regardless of how wide the visible
 // paragraph above it is actually sized.
@@ -37,15 +31,6 @@ const ABOUT_SKILLS = [
   'Product Design',
   'Rendering'
 ];
-
-// The drawer's two description columns (2 and 3) move as one block, placed
-// so column 3's right edge lands where the Photography tab begins - see
-// positionDrawerDescriptionColumns.
-// Nudges just the left column (title/location/format) this many px left,
-// independent of the right (description) column.
-const DESIGN_DRAWER_COLUMN1_LEFT_SHIFT = 20;
-// Horizontal gap between the two placeholder-text columns (2 and 3).
-const DESIGN_DRAWER_COLUMN_GAP = 30;
 
 function designPhotoLabels(count) {
   return Array.from({ length: count }, (_, i) => String(i + 1).padStart(2, '0'));
@@ -200,17 +185,6 @@ const HOUSE_OF_THE_WEB_VIDEOS = projectVideos('images/projects/diseño - house o
   ['2 (1).mp4', 1920, 1080],
   ['3 (1).mp4', 1920, 1080]
 ]);
-
-// diseño - biojuego (shown as "soma"): only its numbered photos 1-4, the
-// originals as-is (a.png in the same folder isn't one of them), sorted once
-// by that number (byLeadingNumber), never shuffled - the carousel's, the
-// viewer's, its thumbs' and arrows' one order.
-const SOMA_MEDIA = projectMedia('images/projects/diseño - biojuego', [
-  ['1.png', 4962, 2716],
-  ['2.png', 5940, 2481],
-  ['3.png', 4245, 2716],
-  ['4.png', 2774, 2716]
-].sort(byLeadingNumber));
 
 // DISEÑO - EVENTO CRUCE feeds Design's "Explorations & Other Works" gallery (see
 // PERSONAL_PHOTOS_BY_PANEL) - every visual file in the folder, listed here
@@ -367,7 +341,7 @@ const DESIGN_PROJECTS = [
   {
     title: 'The House of the Web',
     // Shown on the title's line in the open view, right-aligned to the
-    // description (see alignDrawerCredit).
+    // description's right edge, DESCRIPTION_RIGHT (see .design-photo-drawer-credit).
     credit: '(co-designed with Sara Perez Cotter & Romeo Labrador Keiner)',
     year: '2025',
     tags: ['Audiovisual Design', 'Interactive Game', 'UX Design'],
@@ -393,18 +367,6 @@ const DESIGN_PROJECTS = [
     inlineLinks: [
       { text: 'Lucía Schuchner', href: 'https://www.instagram.com/lucila.schuchner/' }
     ]
-  },
-  {
-    title: 'Construction game - soma',
-    // The open view's title, instead of `title` (see openDesignPhotoDrawer).
-    openTitle: 'soma',
-    year: '2025',
-    tags: ['Product Design', 'Packaging Design', 'User Manual Design'],
-    photos: designPhotoLabels(SOMA_MEDIA.length),
-    images: SOMA_MEDIA,
-    location: 'Rome, Italy',
-    format: 'Product Design',
-    description: 'Soma is a modular construction game inspired by the movement and articulation of the human body. Designed for production through 3D printing and laser-cut MDF, the system combines easily assembled components with two intuitive joint mechanisms that allow pieces to connect, rotate, and be repositioned. These connections enable multidirectional growth, encouraging open-ended structures through continuous construction and manipulation.'
   },
   {
     title: '(des) archivados - blair',
@@ -727,9 +689,9 @@ const TABS_EASE = readEase('--tabs-transition-ease', LINEAR_EASE);
 // Photography share the exact same layout).
 const CAROUSEL_THUMB_SIZE = 96;
 const CAROUSEL_THUMB_HOVER_SCALE = 2.25;
-// Gap between photos: --project-media-gap in style.css, the one value the
+// Gap between photos: --carousel-gap in style.css, the one value the
 // carousels and the galleries' grid streets all share.
-const CAROUSEL_GAP = readPx('--project-media-gap', 35);
+const CAROUSEL_GAP = readPx('--carousel-gap', 35);
 function carouselThumbHoverSteps(thumbSize) {
   return Math.max(1, Math.round(
     thumbSize * (CAROUSEL_THUMB_HOVER_SCALE - 1) / readPx('--tabs-grid-step', 22)
@@ -912,13 +874,15 @@ function measureTextInkRect(el) {
 // hovered project - and the whole rest of the panel - sits under the bar.
 // Distance the bar's top/bottom edges sit inset from the title's measured
 // ink box (tuned independently - the bar isn't symmetric around the text).
-const DESIGN_HOVER_BAR_TOP_INSET = 9;
-const DESIGN_HOVER_BAR_BOTTOM_INSET = 2;
+// In glyph cells - the title's own unit, so the bar hugs the type the same
+// way at every title size (9px / 2px at the reference cell).
+const DESIGN_HOVER_BAR_TOP_INSET_CELLS = 0.41;
+const DESIGN_HOVER_BAR_BOTTOM_INSET_CELLS = 0.0914;
 
 function showDesignHoverBar(titleEl, yearEl) {
   const ink = measureTextInkRect(titleEl);
-  const top = ink.top + DESIGN_HOVER_BAR_TOP_INSET;
-  const bottom = ink.top + ink.height - DESIGN_HOVER_BAR_BOTTOM_INSET;
+  const top = ink.top + DESIGN_HOVER_BAR_TOP_INSET_CELLS * tabTitleCellSize();
+  const bottom = ink.top + ink.height - DESIGN_HOVER_BAR_BOTTOM_INSET_CELLS * tabTitleCellSize();
   designHoverBar.style.top = Math.round(top) + 'px';
   designHoverBar.style.height = Math.round(bottom - top) + 'px';
   designHoverBar.classList.add('is-visible');
@@ -1079,7 +1043,7 @@ function buildDesignProjects(panelEl, panelId) {
           retractCarousel();
           return;
         }
-        openDesignPhotoDrawer(project, label, title.getBoundingClientRect().left);
+        openDesignPhotoDrawer(project, label);
       });
       // On the landing, a touch alone opens a tab (script.js's touchstart
       // trigger) - so a tap meant to retract has to stop there too.
@@ -1152,7 +1116,7 @@ function buildDesignProjects(panelEl, panelId) {
     forwardScrollToPanel(carouselPortal, panelEl);
     forwardScrollToPanel(carouselNav, panelEl);
 
-    const openThisProjectDrawer = () => toggleDesignPhotoDrawer(project, title.getBoundingClientRect().left);
+    const openThisProjectDrawer = () => toggleDesignPhotoDrawer(project);
 
     block.addEventListener('mouseenter', () => {
       if (panelsAnimating || !panelEl.classList.contains('is-active')) return;
@@ -1335,7 +1299,7 @@ function buildPersonalPhotos(panelEl, collection) {
         openPanelFromContent(panelEl.dataset.panel);
         return;
       }
-      openDesignPhotoDrawer(view, null, title.getBoundingClientRect().left);
+      openDesignPhotoDrawer(view, null);
     });
   }
 
@@ -1367,7 +1331,7 @@ function buildPersonalPhotos(panelEl, collection) {
         openPanelFromContent(panelEl.dataset.panel);
         return;
       }
-      openDesignPhotoDrawer(view, label, title.getBoundingClientRect().left);
+      openDesignPhotoDrawer(view, label);
     });
     photoEls[itemIndex] = photo;
     return photo;
@@ -1566,7 +1530,7 @@ function personalPhotoLayoutFromSeed(photoCount, seed) {
 // than its current one, so the grid never reflows while tabs slide.
 //
 // A visible grid of square cells with a street between every two of them,
-// across and down, exactly the carousels' photo gap (--project-media-gap):
+// across and down, exactly the carousels' photo gap (--carousel-gap):
 // the columns and their streets share that width exactly
 // (cell = (width - (columns - 1) * street) / columns, height = width). Each
 // cell's outline sits inside its own square (see .personal-photo in CSS),
@@ -1612,7 +1576,7 @@ function sizePersonalPhotos(projectsEl, panelId) {
   const width = sharedGalleryWidth();
   const fitting = Math.floor((width + photoGap) / (minCellWidth + photoGap));
   const columns = Math.max(1, Math.min(PERSONAL_PHOTO_COLUMNS, fitting));
-  // The streets are the grid's own CSS gap (--project-media-gap, the same
+  // The streets are the grid's own CSS gap (--carousel-gap, the same
   // value photoGap reads from the carousels).
   const cell = Math.max(1, Math.floor((width - (columns - 1) * photoGap) / columns));
   grid.style.marginLeft = offsetX + 'px';
@@ -1807,6 +1771,49 @@ function buildEssayCards(panelEl) {
   projectsElByPanel.essays = container;
 }
 
+// --- Layout anchors -------------------------------------------------------
+// The site's shared geometry. Every position below is derived from a handful
+// of references instead of screen coordinates:
+//   glyph cell (--glyph-cell-size, script.js) - the unit the tabs, titles
+//     and OSATNIK grid are built on;
+//   TAB_WIDTH          = 3 glyph cells (computeOverlapStep);
+//   TABS_LEFT_MARGIN   = the OSATNIK column's margin (tabsLeftOffset);
+//   CONTENT_ORIGIN_X   = Photography's color block's right edge, open
+//                        (contentOriginX) - Contact's left, the enlarged
+//                        carousel photos' left;
+//   CONTENT_LEFT       = the running text's axis (contentTextLeftX) - the
+//                        tagline, About's body and ribbon, Contact's title,
+//                        the project titles;
+//   DESCRIPTION_RIGHT  = where the closed Photography tab begins while Design
+//                        is open - the open project's description columns,
+//                        co-design credit and X all end there.
+// publishLayoutAnchors writes them to :root so CSS positions things from the
+// same values (Contact, the landing photo, the open-project drawer).
+
+// The left margin the open tab stack starts after (the OSATNIK column) -
+// --tabs-left-margin, set by script.js from the glyph cell.
+function tabsLeftOffset() {
+  return readPx('--tabs-left-margin', 178);
+}
+
+// How far DESCRIPTION_RIGHT sits from the screen's right edge: the closed
+// tabs from Photography on, while Design is open.
+function descriptionRightInset() {
+  const photoIndex = PANELS.findIndex(p => p.id === 'photography');
+  return (panelEls.length - photoIndex) * computeOverlapStep();
+}
+
+function publishLayoutAnchors() {
+  if (!panelEls.length) return;
+  const root = document.documentElement.style;
+  const containerLeft = tabsContainer.getBoundingClientRect().left;
+  root.setProperty('--tab-width', computeOverlapStep() + 'px');
+  root.setProperty('--tab-count', panelEls.length);
+  root.setProperty('--content-origin-x', (contentOriginX() - containerLeft) + 'px');
+  root.setProperty('--content-left', (contentTextLeftX() - containerLeft) + 'px');
+  root.setProperty('--description-right-inset', descriptionRightInset() + 'px');
+}
+
 // The one horizontal origin every open tab's content starts at: the right
 // edge of Photography's own .tab-color-block while Photography is open.
 // Derived from the same math that actually places things (computeTargets'
@@ -1826,7 +1833,7 @@ function contentOriginX() {
 // positionAboutMarquee/positionLandingTagline).
 function contentLeftX() {
   const idx = PANELS.findIndex(p => p.id === 'photography');
-  const offset = readPx('--reset-tab-width', 28) + readPx('--tabs-left-shift', 0);
+  const offset = tabsLeftOffset();
   return tabsContainer.getBoundingClientRect().left + offset + idx * computeOverlapStep();
 }
 
@@ -1867,15 +1874,24 @@ function tabTitleUnderlineY() {
   return firstChar.getBoundingClientRect().bottom - border;
 }
 
+// Text measures: the running text's line length (its size is fixed in px,
+// so its measure is too - the same wrapping on every screen), never wider
+// than the room between CONTENT_LEFT and the open tab's right edge. Read
+// from CSS (--about-text-measure, --project-text-measure).
+function textMeasure(varName, fallback, panelId) {
+  const idx = PANELS.findIndex(p => p.id === panelId);
+  const room = tabsContainer.getBoundingClientRect().left + panelActiveRight(idx) - contentTextLeftX();
+  return Math.max(0, Math.round(Math.min(readPx(varName, fallback), room)));
+}
+// The project column: the tags' line length. The title and year sit on the
+// title's own letter-cell grid (see .design-project-year) and don't use it.
+function projectTextMeasure() {
+  return textMeasure('--project-text-measure', 565, 'design');
+}
+
 // Essays' own (unused) fallback position - Design/Photography derive theirs
 // from contentOriginX/tabTitleUnderlineY instead (see positionDesignProjects).
 const DESIGN_PROJECTS_TOP_EDGE_Y = 294;
-// The block's own width is measured from here, not from its (moving)
-// left edge - keeps the title/tags column at its
-// original width regardless of how far right the block itself has been
-// nudged, rather than narrowing (and so wrapping the title across two
-// lines) every time that moves closer to the fixed right edge below.
-const DESIGN_PROJECTS_WIDTH_REFERENCE_LEFT_X = 279;
 // Per-panel nudge added on top of DESIGN_PROJECTS_TOP_EDGE_Y - Essays sits
 // lower. Design and Photography share the plain (unshifted) position.
 const DESIGN_PROJECTS_TOP_OFFSET_BY_PANEL = { essays: 25 };
@@ -1919,8 +1935,7 @@ function essaysRequiredWidth() {
 function projectRectWidth() {
   const resting = computeAboutRestingRect();
   if (resting) return resting.width;
-  const rightEdgeX = window.innerWidth / 2 - 10;
-  return Math.max(0, Math.round(rightEdgeX - DESIGN_PROJECTS_WIDTH_REFERENCE_LEFT_X));
+  return projectTextMeasure();
 }
 
 // Per-panel nudge on top of each project rect's own default position (block
@@ -1967,8 +1982,7 @@ function positionProjectRectsForPanel(panelId, rectWidth) {
 function positionDesignProjects() {
   const panelIds = Object.keys(projectsElByPanel);
   if (!panelIds.length) return;
-  const rightEdgeX = window.innerWidth / 2 - 10;
-  const width = Math.max(0, Math.round(rightEdgeX - DESIGN_PROJECTS_WIDTH_REFERENCE_LEFT_X));
+  const width = projectTextMeasure();
   const rectWidth = projectRectWidth();
   const columnLeftX = projectColumnLeftX();
   const containerRect = tabsContainer.getBoundingClientRect();
@@ -2040,7 +2054,7 @@ function positionDesignProjects() {
 // A panel's own left (tabsContainer coordinates) while it's the open tab -
 // computeTargets' own active-panel formula.
 function panelActiveLeft(index) {
-  const offset = readPx('--reset-tab-width', 28) + readPx('--tabs-left-shift', 0);
+  const offset = tabsLeftOffset();
   return offset + index * computeOverlapStep();
 }
 
@@ -2264,11 +2278,21 @@ designPhotoViewerStage.className = 'design-photo-viewer-stage';
 designPhotoViewer.appendChild(designPhotoViewerStage);
 document.body.appendChild(designPhotoViewer);
 
-// The drawer itself: preview strip on top, two text columns below.
+// The drawer itself: the control row on top (prev arrow, preview strip,
+// next arrow - centered on the screen - and the X), the text grid below.
 const designPhotoDrawer = document.createElement('div');
 designPhotoDrawer.className = 'design-photo-drawer';
+// One row for every control, so the arrows, the thumbnails and the X share
+// a single vertical center (align-items in CSS) instead of three tops.
+const designPhotoDrawerControls = document.createElement('div');
+designPhotoDrawerControls.className = 'design-photo-drawer-controls';
+const designPhotoDrawerNav = document.createElement('div');
+designPhotoDrawerNav.className = 'design-photo-drawer-nav';
 const designPhotoDrawerTrack = document.createElement('div');
 designPhotoDrawerTrack.className = 'design-photo-drawer-track';
+// The text: one grid - the title row across the top (its credit pushed to
+// the grid's right edge, DESCRIPTION_RIGHT), then the location/format
+// column and the two description columns. See .design-photo-drawer-columns.
 const designPhotoDrawerColumns = document.createElement('div');
 designPhotoDrawerColumns.className = 'design-photo-drawer-columns';
 const designPhotoDrawerColumn1 = document.createElement('div');
@@ -2300,36 +2324,6 @@ function setDrawerTitle(text) {
   });
 }
 
-// Moves description columns 2 and 3 as one block - their widths and the
-// DESIGN_DRAWER_COLUMN_GAP between them untouched - so column 3's right
-// edge sits exactly where the Photography tab begins: its left edge while
-// closed to the right of an open Design (computeTargets' right-hand group),
-// the same point for every project. Positions are relative to the columns
-// container, whose left is the opened project's title x.
-let drawerTitleLeftX = 0;
-function positionDrawerDescriptionColumns() {
-  const photoIndex = PANELS.findIndex(p => p.id === 'photography');
-  const photographyTabX = tabsContainer.getBoundingClientRect().left + tabsContainer.clientWidth -
-    (panelEls.length - photoIndex) * computeOverlapStep();
-  const column2Width = designPhotoDrawerColumn2.getBoundingClientRect().width;
-  const column3Width = designPhotoDrawerColumn3.getBoundingClientRect().width;
-  const column2LeftX = photographyTabX - column3Width - DESIGN_DRAWER_COLUMN_GAP - column2Width;
-  designPhotoDrawerColumn2.style.left = Math.round(column2LeftX - drawerTitleLeftX) + 'px';
-  designPhotoDrawerColumn3.style.left = Math.round(column2LeftX + column2Width + DESIGN_DRAWER_COLUMN_GAP - drawerTitleLeftX) + 'px';
-  alignDrawerCredit();
-}
-
-// A project's credit (.design-photo-drawer-credit) stays on its title's line
-// but is pushed right - by its own margin, so the title never moves - until
-// its right edge meets the right description column's (column 3, just
-// placed above).
-function alignDrawerCredit() {
-  const credit = designPhotoDrawerCredit;
-  credit.style.marginLeft = '';
-  if (!credit.textContent) return;
-  const shift = designPhotoDrawerColumn3.getBoundingClientRect().right - credit.getBoundingClientRect().right;
-  credit.style.marginLeft = Math.max(0, Math.round(shift)) + 'px';
-}
 // Fills the two description columns (2 then 3) at their own fixed size and
 // typography: the text starts in column 2 and, only if it runs past that
 // column's height, continues in column 3 from the first word that didn't
@@ -2515,30 +2509,35 @@ designPhotoDrawerLocation.className = 'design-photo-drawer-location';
 // text for now, real copy later.
 const designPhotoDrawerFormat = document.createElement('div');
 designPhotoDrawerFormat.className = 'design-photo-drawer-format';
-designPhotoDrawerColumn1.appendChild(designPhotoDrawerTitleRow);
 designPhotoDrawerColumn1.appendChild(designPhotoDrawerLocation);
 designPhotoDrawerColumn1.appendChild(designPhotoDrawerFormat);
+// The two description columns (the text flows from 2 into 3 - see
+// flowDrawerDescription): the grid's last two tracks, so column 3's right
+// edge is DESCRIPTION_RIGHT.
 const designPhotoDrawerColumn2 = document.createElement('div');
 designPhotoDrawerColumn2.className = 'design-photo-drawer-column design-photo-drawer-column-wide';
-// A third, identical placeholder paragraph, DESIGN_DRAWER_COLUMN_GAP px to
-// column2's own right.
 const designPhotoDrawerColumn3 = document.createElement('div');
 designPhotoDrawerColumn3.className = 'design-photo-drawer-column design-photo-drawer-column-wide';
+designPhotoDrawerColumns.appendChild(designPhotoDrawerTitleRow);
 designPhotoDrawerColumns.appendChild(designPhotoDrawerColumn1);
 designPhotoDrawerColumns.appendChild(designPhotoDrawerColumn2);
 designPhotoDrawerColumns.appendChild(designPhotoDrawerColumn3);
 // Prev/next step through the open project (stepDesignPhoto - circular, the
 // same path as the arrow keys and, via showDrawerPhotoAtIndex, the preview
 // thumbs and the peeking photos); close is the background's own
-// closeDesignPhotoDrawer. Placed by positionDrawerControls.
+// closeDesignPhotoDrawer. All three live in the control row: the arrows
+// either side of the strip (one strip gap away - the row's flex gap), the X
+// at the row's end, its right edge on DESCRIPTION_RIGHT.
 const designPhotoDrawerPrev = createNavControl('prev', 'design-photo-drawer-control', () => stepDesignPhoto(-1));
 const designPhotoDrawerNext = createNavControl('next', 'design-photo-drawer-control', () => stepDesignPhoto(1));
-const designPhotoDrawerClose = createNavControl('close', 'design-photo-drawer-control', () => closeDesignPhotoDrawer());
-designPhotoDrawer.appendChild(designPhotoDrawerTrack);
+const designPhotoDrawerClose = createNavControl('close', 'design-photo-drawer-control design-photo-drawer-close', () => closeDesignPhotoDrawer());
+designPhotoDrawerNav.appendChild(designPhotoDrawerPrev);
+designPhotoDrawerNav.appendChild(designPhotoDrawerTrack);
+designPhotoDrawerNav.appendChild(designPhotoDrawerNext);
+designPhotoDrawerControls.appendChild(designPhotoDrawerNav);
+designPhotoDrawerControls.appendChild(designPhotoDrawerClose);
+designPhotoDrawer.appendChild(designPhotoDrawerControls);
 designPhotoDrawer.appendChild(designPhotoDrawerColumns);
-designPhotoDrawer.appendChild(designPhotoDrawerPrev);
-designPhotoDrawer.appendChild(designPhotoDrawerNext);
-designPhotoDrawer.appendChild(designPhotoDrawerClose);
 document.body.appendChild(designPhotoDrawer);
 makeCarouselDraggable(designPhotoDrawerTrack);
 
@@ -2561,44 +2560,15 @@ function navControlInkOffset(btn) {
   return (inkCenter - boxHeight / 2) * scale;
 }
 
-// The drawer's controls, from the live geometry (drawer coordinates, so its
-// slide doesn't matter): all three on the preview strip's own (unshifted)
-// middle; the arrows one strip gap (the thumbs' own gap) outside the first
-// and last thumb; the X DRAWER_CLOSE_INSET px in from the screen's right
-// edge (the drawer spans the full width), on the arrows' line. The arrows'
-// edges are their visible ones - .nav-control's scale grows them around
-// their center, which the rects below already include - and they stay on
-// screen if the strip is wider than it. Then the strip itself - as one
-// unit, a translateY only, so its x, the thumbs and the drawer's flow (the
-// text columns) don't move - comes down until its middle meets the arrows'
+// The control row's layout is CSS (one row, one shared center line). The
+// only thing measured here is optical: the ‹ › glyphs ride low in their own
+// box, so the strip - as one unit, a translateY only, so its x and the
+// drawer's flow don't move - comes down until its middle meets the arrows'
 // drawn middle (navControlInkOffset).
-const DRAWER_CLOSE_INSET = 16;
 function positionDrawerControls() {
-  const first = currentDrawerThumbs[0];
-  const last = currentDrawerThumbs[currentDrawerThumbs.length - 1];
-  if (!first) return;
-  const drawerRect = designPhotoDrawer.getBoundingClientRect();
-  const firstRect = first.getBoundingClientRect();
-  const lastRect = last.getBoundingClientRect();
-  // Layout offsets, not rects: the strip's own shift below never feeds back.
-  const centerY = designPhotoDrawerTrack.offsetTop + designPhotoDrawerTrack.offsetHeight / 2;
-  const gap = parseFloat(getComputedStyle(designPhotoDrawerTrack).columnGap) || 0;
-  const place = (btn, visibleLeft) => {
-    const visibleWidth = btn.getBoundingClientRect().width;
-    const x = Math.max(0, Math.min(drawerRect.width - visibleWidth, visibleLeft - drawerRect.left));
-    btn.style.left = Math.round(x + (visibleWidth - btn.offsetWidth) / 2) + 'px';
-    btn.style.top = Math.round(centerY - btn.offsetHeight / 2) + 'px';
-  };
-  place(designPhotoDrawerPrev, firstRect.left - gap - designPhotoDrawerPrev.getBoundingClientRect().width);
-  place(designPhotoDrawerNext, lastRect.right + gap);
-  designPhotoDrawerClose.style.left =
-    Math.round(drawerRect.width - DRAWER_CLOSE_INSET - designPhotoDrawerClose.offsetWidth) + 'px';
-  designPhotoDrawerClose.style.top = Math.round(centerY - designPhotoDrawerClose.offsetHeight / 2) + 'px';
-  designPhotoDrawerTrack.style.transform =
-    `translateY(${Math.round(navControlInkOffset(designPhotoDrawerPrev))}px)`;
+  designPhotoDrawerControls.style.setProperty('--nav-ink-offset',
+    Math.round(navControlInkOffset(designPhotoDrawerPrev)) + 'px');
 }
-// A dragged strip carries its first/last thumb along - the arrows follow.
-designPhotoDrawerTrack.addEventListener('scroll', positionDrawerControls, { passive: true });
 // The glyph metrics depend on the loaded font.
 document.fonts.ready.then(positionDrawerControls);
 
@@ -2638,9 +2608,17 @@ function positionDesignPhotoDrawer() {
 // photo's entrance and the stack's rearrangement are one synchronized
 // transition, forward and back - and every frame re-derives which photos lie
 // under another from those same painted positions (updatePhotoStackDepth).
+// The open project's media area: the viewer's own box (full width, from the
+// screen's top down to the drawer). ACTIVE_MEDIA_CENTER_X is its center;
+// photos waiting their turn park just past its right edge.
+function viewerMediaArea() {
+  const rect = designPhotoViewer.getBoundingClientRect();
+  return { left: rect.left, right: rect.right, width: rect.width, centerX: rect.left + rect.width / 2 };
+}
+
 function layoutPhotoStack() {
   const stageLeft = designPhotoViewerStage.getBoundingClientRect().left;
-  const offscreenX = window.innerWidth - stageLeft;
+  const offscreenX = viewerMediaArea().right - stageLeft;
   const stackX = photoStackTargets();
   designPhotoViewerEls.forEach((el, i) => {
     const target = i <= currentDrawerIndex ? stackX[i] : offscreenX;
@@ -2669,7 +2647,7 @@ function layoutPhotoStack() {
 // they stop changes.
 function photoStackTargets() {
   const stageLeft = designPhotoViewerStage.getBoundingClientRect().left;
-  const centerX = window.innerWidth / 2 - stageLeft;
+  const centerX = viewerMediaArea().centerX - stageLeft;
   const xs = [];
   const current = designPhotoViewerEls[currentDrawerIndex];
   if (!current) return xs;
@@ -2690,7 +2668,7 @@ function photoStackTargets() {
 // resize; photoStackTargets then reads the resulting widths.
 function fitViewerMedia() {
   const stageHeight = designPhotoViewerStage.clientHeight;
-  const maxWidth = window.innerWidth - 2 * DESIGN_PHOTO_STACK_OFFSET;
+  const maxWidth = viewerMediaArea().width - 2 * DESIGN_PHOTO_STACK_OFFSET;
   designPhotoViewerEls.forEach(el => {
     const media = el._media;
     if (!media) return;
@@ -2729,7 +2707,7 @@ function setPhotoStackX(el, x) {
 // cropped here - a lower photo stays whole under the one in front, which
 // is placed so it never lets it show on the right (photoStackTargets).
 function updatePhotoStackDepth() {
-  const offscreenX = window.innerWidth - designPhotoViewerStage.getBoundingClientRect().left;
+  const offscreenX = viewerMediaArea().right - designPhotoViewerStage.getBoundingClientRect().left;
   const boxes = designPhotoViewerEls.map(el => {
     const x = parseFloat(el.dataset.paintedX || '0');
     return { left: x, right: x + el.offsetWidth, onStage: x < offscreenX };
@@ -2820,11 +2798,10 @@ const DESIGN_PHOTO_CLOSE_SURFACES = [
 
 // project: the DESIGN_PROJECTS entry being opened - supplies its own
 // title/year/location/format/description, so each project's drawer reads
-// distinctly instead of sharing one global placeholder. titleLeftX: viewport
-// x of the title in the project block (measured live by the caller) - the
-// left column starts there; the two description columns are placed by
-// positionDrawerDescriptionColumns.
-function openDesignPhotoDrawer(project, startLabel, titleLeftX) {
+// distinctly instead of sharing one global placeholder. Its text sits on the
+// shared anchors (CONTENT_LEFT, DESCRIPTION_RIGHT - see
+// .design-photo-drawer-columns), whichever title was clicked.
+function openDesignPhotoDrawer(project, startLabel) {
   const photos = project.photos;
   // Clear any leftover photo elements from a previous project's viewing
   // session (stopping any move still under way), so this one's fan-out
@@ -2841,7 +2818,7 @@ function openDesignPhotoDrawer(project, startLabel, titleLeftX) {
   // (placed directly - not animated) - layoutPhotoStack() then slides in
   // however many of them (0..currentDrawerIndex) are revealed.
   const stageLeft = designPhotoViewerStage.getBoundingClientRect().left;
-  const offscreenX = window.innerWidth - stageLeft;
+  const offscreenX = viewerMediaArea().right - stageLeft;
   const images = project.images || [];
   designPhotoViewerEls = photos.map((label, i) => {
     const el = document.createElement('div');
@@ -2893,7 +2870,7 @@ function openDesignPhotoDrawer(project, startLabel, titleLeftX) {
   designPhotoDrawerTrack.scrollLeft = 0;
   fitViewerMedia();
 
-  setDrawerTitle(project.openTitle || project.title);
+  setDrawerTitle(project.title);
   designPhotoDrawerCredit.textContent = project.credit || '';
   // A personal-photos collection (PERSONAL_PHOTOS_BY_PANEL) has only a
   // title - its missing fields just render empty (the studies gallery's
@@ -2902,17 +2879,9 @@ function openDesignPhotoDrawer(project, startLabel, titleLeftX) {
   const drawerText = drawerTextFor(project, currentDrawerIndex);
   designPhotoDrawerLocation.textContent = drawerText.locationLine;
   designPhotoDrawerFormat.textContent = project.format || '';
-  designPhotoDrawerColumns.style.left = Math.round(titleLeftX) + 'px';
-  designPhotoDrawerColumn1.style.left = -DESIGN_DRAWER_COLUMN1_LEFT_SHIFT + 'px';
-  drawerTitleLeftX = titleLeftX;
-  positionDrawerDescriptionColumns();
-  // Column2's first line should start level with column1's location line
-  // (the one with the year/city), not with its title above that.
-  const columnsRect = designPhotoDrawerColumns.getBoundingClientRect();
-  const locationRect = designPhotoDrawerLocation.getBoundingClientRect();
-  const column2Top = Math.round(locationRect.top - columnsRect.top);
-  designPhotoDrawerColumn2.style.top = column2Top + 'px';
-  designPhotoDrawerColumn3.style.top = column2Top + 'px';
+  // The text grid's place (CONTENT_LEFT on the left, DESCRIPTION_RIGHT on
+  // the right) and its columns' tops (the description starts level with the
+  // location line) are all CSS - see .design-photo-drawer-columns.
   flowDrawerDescription(drawerText.description, drawerText.link, drawerText.inlineLinks, drawerText.heading);
   positionDrawerControls();
 
@@ -2938,11 +2907,11 @@ function closeDesignPhotoDrawer() {
   designPhotoBackdrop.classList.remove('is-open');
 }
 
-function toggleDesignPhotoDrawer(project, titleLeftX) {
+function toggleDesignPhotoDrawer(project) {
   if (designPhotoDrawer.classList.contains('is-open')) {
     closeDesignPhotoDrawer();
   } else {
-    openDesignPhotoDrawer(project, null, titleLeftX);
+    openDesignPhotoDrawer(project, null);
   }
 }
 
@@ -3108,22 +3077,18 @@ function buildPanels() {
   });
 }
 
-// About's body text width: from ABOUT_BODY_WIDTH_REFERENCE_LEFT_X to half
-// the window width minus 10px (unchanged since before the text moved).
+// About's body text width: its text measure (see textMeasure).
 function aboutTextWidth() {
-  return Math.max(0, Math.round(window.innerWidth / 2 - 10 - ABOUT_BODY_WIDTH_REFERENCE_LEFT_X));
+  return textMeasure('--about-text-measure', 500, 'about');
 }
 
 // The left edge of About's text column - the one starting "federico
-// osatnik" - where its rendered text actually starts. The landing tagline
-// and the skills ribbon window start here too (positionLandingTagline/
-// positionAboutMarqueeWindow). Measured by measureAboutBodyLeftX in About's
-// open layout and kept here, so it can be used while About is closed (on
-// the landing); falls back to the column's own left (contentTextLeftX, where
-// sizeAboutBody puts it) until then.
-let aboutBodyLeftXMeasured = null;
+// osatnik". The landing tagline and the skills ribbon window start here too
+// (positionLandingTagline/positionAboutMarqueeWindow). It is CONTENT_LEFT
+// itself (sizeAboutBody puts the paragraphs there), so all of them share
+// that one anchor rather than a measured copy of it.
 function aboutBodyLeftX() {
-  return aboutBodyLeftXMeasured != null ? aboutBodyLeftXMeasured : contentTextLeftX();
+  return contentTextLeftX();
 }
 
 // The furthest left any rendered glyph run inside el starts - text nodes
@@ -3137,12 +3102,6 @@ function renderedTextLeft(el) {
     [...range.getClientRects()].forEach(r => { if (r.width) left = Math.min(left, r.left); });
   }
   return left;
-}
-
-// Only valid while About is laid out open (withAboutActiveLayout).
-function measureAboutBodyLeftX() {
-  const left = Math.min(...aboutBodyParagraphEls.map(renderedTextLeft));
-  if (isFinite(left)) aboutBodyLeftXMeasured = left;
 }
 
 // Sizes every About Me paragraph so its left edge sits at contentTextLeftX
@@ -3165,18 +3124,24 @@ function sizeAboutBody() {
   });
 }
 
-const ABOUT_BODY_TOP_EDGE_Y = 304;
+// How far below the tab titles' dotted underline About's text starts, in
+// glyph cells (the titles' own unit) - the same line Design/Photography's
+// first photo starts on (see positionDesignProjects).
+const ABOUT_BODY_UNDERLINE_GAP_CELLS = 0.4;
 
 // Pushes the About body down (via margin-top on its container) so the
 // topmost text - the first paragraph's own top, not the container's padded
-// box - sits at the fixed viewport y ABOUT_BODY_TOP_EDGE_Y.
+// box - sits just under the tab titles' underline.
 function positionAboutBodyTop() {
   if (!aboutBodyDivEl || !aboutBodyP) return;
+  const underlineY = tabTitleUnderlineY();
+  if (underlineY == null) return;
   // Clear any previous adjustment first so the measurement reflects the
   // body's natural (un-shifted) flow position, not a stale corrected one.
   aboutBodyDivEl.style.marginTop = '0px';
   const textTop = aboutBodyP.getBoundingClientRect().top;
-  aboutBodyDivEl.style.marginTop = Math.round(ABOUT_BODY_TOP_EDGE_Y - textTop) + 'px';
+  const targetTop = underlineY + ABOUT_BODY_UNDERLINE_GAP_CELLS * tabTitleCellSize();
+  aboutBodyDivEl.style.marginTop = Math.round(targetTop - textTop) + 'px';
 }
 
 // Measures where ABOUT_LIST_ANCHOR_WORD would sit in a paragraph fixed at
@@ -3318,7 +3283,6 @@ function positionAboutMarquee() {
 // anything vertical. Needs About's open layout (withAboutActiveLayout).
 function positionAboutMarqueeWindow() {
   if (!aboutMarqueeEl || !aboutMarqueeClipEl) return;
-  measureAboutBodyLeftX();
   const panelRect = aboutMarqueeEl.parentElement.closest('.tab-panel').getBoundingClientRect();
   const marqueeLeftX = panelRect.left + (parseFloat(aboutMarqueeEl.style.left) || 0);
   aboutMarqueeClipEl.style.left = (aboutBodyLeftX() - marqueeLeftX) + 'px';
@@ -3411,7 +3375,7 @@ function getPanelRectSlots(panelId) {
 function computeAboutRestingRect() {
   if (!aboutMarqueeEl) return null;
   const fullWidth = tabsContainer.clientWidth;
-  const offset = readPx('--reset-tab-width', 28) + readPx('--tabs-left-shift', 0);
+  const offset = tabsLeftOffset();
   const naturalWidths = panelEls.map(measureTitleWidth);
   // Mirrors computeTargets' own math for the "About active" case: every
   // other tab now shows the exact same uniform closed-tab width (see
@@ -3595,30 +3559,18 @@ function panelContentLayerZ(index) {
 
 // Tab i's left (in tabsContainer's coordinates) in the landing layout:
 // every tab closed, overlapStep wide, packed flush against the right edge.
-// The one source for that position - computeTargets' landing case and the
-// landing photo's width (sizeLandingPhoto) both read it.
+// The one source for that position (computeTargets' landing case). The
+// landing photo's right edge meets the first of these (About's) through the
+// same relation in CSS - see body::before.
 function landingTabLeft(i) {
   const overlapStep = computeOverlapStep();
   return tabsContainer.clientWidth - (panelEls.length - i) * overlapStep;
 }
 
-// The landing photo (body::before in CSS) keeps its left edge at the
-// screen's left and grows - at its own aspect ratio, never distorted - until
-// its right edge meets the About Me tab's left edge on the landing: its
-// width is exactly that distance, and its height follows from the ratio
-// (background-size: <width> auto). Re-run on resize.
-function sizeLandingPhoto() {
-  const aboutIndex = PANELS.findIndex(p => p.id === 'about');
-  const aboutLeftX = tabsContainer.getBoundingClientRect().left + landingTabLeft(aboutIndex);
-  document.documentElement.style.setProperty('--landing-photo-size', Math.round(aboutLeftX) + 'px auto');
-}
-
 function computeTargets() {
   const fullWidth = tabsContainer.clientWidth;
-  // --tabs-left-shift pushes the active tab and its covered-left stack
-  // further right without touching --reset-tab-width (which also sizes the
-  // separate "back to start" strip).
-  const offset = readPx('--reset-tab-width', 28) + readPx('--tabs-left-shift', 0);
+  // The open tab stack starts after the OSATNIK column's margin.
+  const offset = tabsLeftOffset();
   const n = panelEls.length;
   const overlapStep = computeOverlapStep();
 
@@ -3987,6 +3939,7 @@ function animateToTargets(targets, options) {
 }
 
 function layoutPanels(animate, rectMorph) {
+  publishLayoutAnchors();
   const targets = computeTargets();
   if (animate) {
     animateToTargets(targets, rectMorph ? {
@@ -4227,20 +4180,11 @@ function contactOpenHeight() {
 // back up with no motion of their own.
 function positionContactTab() {
   if (!contactTabEl) return;
-  // CONTACT_LEFT_X = the right edge of Photography's color block (open) -
-  // contentOriginX, derived from the open layout, so it never moves when
-  // tabs open/close/scroll; only with the viewport.
-  contactTabEl.style.left = (contentOriginX() - tabsContainer.getBoundingClientRect().left) + 'px';
-  // The title starts at contentTextLeftX - the Design project titles' own x
-  // (the project column's left while Design is open, which is where every
-  // project title starts), measured from the strip's own left edge. Both
-  // titles are the same per-letter cells with a left-aligned first letter,
-  // so their first letters line up. Only x - it stays bottom-anchored (CSS).
-  const stripLeftX = contactTabEl.getBoundingClientRect().left;
-  // One x for the title and the info block above it (both read it in CSS).
-  contactTabEl.style.setProperty('--contact-text-left', (contentTextLeftX() - stripLeftX) + 'px');
-  // The orange handle's constant height: the closed strip's own.
-  contactTabEl.style.setProperty('--contact-handle-height', contactClosedHeight() + 'px');
+  // Its left (CONTENT_ORIGIN_X - Photography's open color block's right
+  // edge), its title's x (CONTENT_LEFT) and its orange handle's height (one
+  // TAB_WIDTH) are CSS relations on the published anchors - see
+  // .contact-tab in style.css.
+  publishLayoutAnchors();
   const cellSize = tabTitleCellSize();
   const chars = Array.from(contactTitleEl.children);
   contactTitleEl.style.width = chars.length * cellSize + 'px';
@@ -4431,7 +4375,7 @@ function resetEverything(e) {
 osatnikHotspot.addEventListener('click', resetEverything);
 tabsHome.addEventListener('click', resetEverything);
 
-// contentOriginX/ABOUT_BODY_TOP_EDGE_Y (and positionAboutMarquee's
+// contentOriginX/tabTitleUnderlineY (and positionAboutMarquee's
 // own anchor, further below) describe where About's text sits once About is
 // actually OPEN (active, its title horizontal, its panel at its real active
 // width) - sizeAboutBody/positionAboutBodyTop/positionAboutMarquee all work
@@ -4462,7 +4406,7 @@ positionDesignPhotoDrawer();
 // very first frame, well before any interaction, instead of waiting
 // off-screen for reveal().
 layoutPanels(false);
-sizeLandingPhoto();
+
 withAboutActiveLayout(() => {
   sizeAboutBody();
   positionAboutBodyTop();
@@ -4479,7 +4423,6 @@ if (document.fonts && document.fonts.ready) {
     // covers that (rare) case instead. The tagline only needs the ribbon's
     // (tab-independent) vertical position.
     positionLandingTagline();
-    sizeLandingPhoto();
     if (panelsAnimating) return;
     withAboutActiveLayout(() => {
       positionAboutMarqueeWindow();
@@ -4491,12 +4434,14 @@ window.addEventListener('resize', () => {
   // real rectangles it had hidden) stale/inconsistent with the freshly
   // recomputed layout below.
   clearRectMorph();
+  // The anchors first: the open project's text grid and control row (CSS)
+  // are placed from them, and are measured right below.
+  publishLayoutAnchors();
   positionDesignPhotoDrawer();
   if (designPhotoViewerEls.length) {
     fitViewerMedia();
     layoutPhotoStack();
   }
-  positionDrawerDescriptionColumns();
   // The columns' height follows the viewport's - re-split the text.
   flowDrawerDescription(drawerDescriptionText, drawerDescriptionLink, drawerDescriptionInlineLinks, drawerDescriptionHeading);
   positionDrawerControls();
@@ -4504,7 +4449,6 @@ window.addEventListener('resize', () => {
   // computeTargets/applyTargets both handle the activeIndex<0 landing case
   // on their own now, same as any other resting state.
   layoutPanels(false);
-  sizeLandingPhoto();
   withAboutActiveLayout(() => {
     sizeAboutBody();
     positionAboutBodyTop();
