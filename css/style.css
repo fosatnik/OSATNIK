@@ -139,54 +139,10 @@ body::before {
   pointer-events: none;
 }
 
-/* Phones (767px wide or less): only this message, filling the screen -
-   nothing of the portfolio shows or takes input behind it. Every other
-   body child (including what tabs.js appends there: rects, the viewer, the
-   hover bar) and the landing photo are hidden outright; html/body already
-   never scroll. Desktop (768px and up) never shows it. */
-.mobile-notice {
+/* Phones get their own layout (.m-root, built by js/mobile.js) - see the
+   MOBILE LAYOUT section at the end of this file. Desktop never shows it. */
+.m-root {
   display: none;
-}
-
-/* Its colors: one tab's color-block rect and that same tab's title color,
-   drawn once per load (--mobile-notice-bg/-color, set by tabs.js from
-   TAB_ACCENT_COLORS). The tab titles' own family and weight. */
-/* 767.98, not 767: on a fractional-pixel screen a "767px" viewport can be
-   767.3 wide and slip past a plain 767px limit. */
-@media (max-width: 767.98px) {
-  html {
-    background: var(--mobile-notice-bg, var(--tab-open-bg));
-  }
-
-  body::before,
-  body > *:not(.mobile-notice) {
-    display: none !important;
-  }
-
-  .mobile-notice {
-    position: fixed;
-    inset: 0;
-    z-index: 2147483647;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    height: 100dvh;
-    padding: 0 24px;
-    box-sizing: border-box;
-    background: var(--mobile-notice-bg, var(--tab-open-bg));
-    color: var(--mobile-notice-color, #000);
-    font-family: 'IBM Plex Serif', 'Times New Roman', serif;
-    font-weight: 500;
-    font-size: 15px;
-    line-height: 1.4;
-    text-align: center;
-    overflow: hidden;
-  }
-
-  .mobile-notice p {
-    margin: 0;
-  }
 }
 
 #nameCanvas {
@@ -264,6 +220,9 @@ body::before {
   --tabs-step-interval: 45ms;
   /* The invisible "back to start" strip at the screen's left edge. */
   --reset-tab-width: 28px;
+  /* CONTACT_SAFE_GAP: the least air between Contact's info block and its
+     orange handle (read by positionContactContent - see .contact-content). */
+  --contact-safe-gap: 8px;
 
   /* Every tab's own surface, open or closed alike - a plain, neutral gray,
      the same for all of them (see .tab-panel). Each tab's own fixed colors
@@ -421,26 +380,71 @@ body::before {
   overflow: hidden;
 }
 
-/* Same x as the title (--contact-text-left); top set in JS
+/* CONTACT_CONTENT: same x as the title (--contact-text-left); top set in JS
    (positionContactContent) so MAIL sits on the closed title's baseline.
    Roboto Light from /typo, in the About body's own size and text color
    (--about-text-color) - the tabs' normal running text on their gray
-   surface. */
+   surface.
+
+   One vertical column of CONTACT_ITEMs (MAIL, TEL, INSTAGRAM), fitted into
+   AVAILABLE_CONTACT_HEIGHT (--contact-available-height, from JS: its top
+   down to the open strip's orange handle, less --contact-safe-gap) - so it
+   never reaches under the handle. With room to spare it is exactly the
+   original block: 15px type, 18px lines (1.2), one empty line (18px)
+   between items. As the room shrinks it compacts continuously, in order:
+     1. the gap between items, down to --contact-gap-min;
+     2. then the line-height, down to --contact-line-height-min;
+     3. then the type, down to --contact-font-size-min;
+     4. and only below all that, the block scrolls inside itself.
+   Each step is a clamp() on the same budget (6 lines + 2 gaps), so they
+   hand over to one another without jumps. */
 .contact-content {
+  --contact-font-size-max: 15px;
+  --contact-font-size-min: 11px;
+  --contact-line-height-max: 1.2;
+  --contact-line-height-min: 1;
+  --contact-gap-max: calc(var(--contact-font-size-max) * var(--contact-line-height-max));
+  --contact-gap-min: 3px;
+  /* Below the 1.17em the glyphs themselves need, a tight line-height lets
+     the last line's text overhang the block by up to ~1px - which counts as
+     scrollable overflow. This padding keeps that overhang inside the box,
+     so it never tips the block into scrolling. */
+  --contact-ink-pad: 2px;
+  /* The budget for the lines and gaps: the room, less that padding and
+     1px for rounding. */
+  --contact-fit: calc(var(--contact-available-height, 1000px) - var(--contact-ink-pad) - 1px);
+  --contact-font-size: clamp(
+    var(--contact-font-size-min),
+    (var(--contact-fit) - 2 * var(--contact-gap-min)) / (6 * var(--contact-line-height-min)),
+    var(--contact-font-size-max));
+  --contact-line: clamp(
+    var(--contact-font-size) * var(--contact-line-height-min),
+    (var(--contact-fit) - 2 * var(--contact-gap-min)) / 6,
+    var(--contact-font-size) * var(--contact-line-height-max));
   position: absolute;
   left: var(--contact-text-left, 0px);
   top: var(--contact-content-top, 0px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(
+    var(--contact-gap-min),
+    (var(--contact-fit) - 6 * var(--contact-line)) / 2,
+    var(--contact-gap-max));
+  /* MAX_CONTENT_BOTTOM = ORANGE_RECT_TOP - CONTACT_SAFE_GAP. The scroll is
+     the last resort (step 4) - it never shows while the steps above fit.
+     The right padding keeps each value's "*copied" note (out of flow, to
+     its right) inside the box, so it isn't clipped. */
+  box-sizing: border-box;
+  max-height: var(--contact-available-height, none);
+  overflow-y: auto;
+  padding-right: 5em;
+  padding-bottom: var(--contact-ink-pad);
   font-family: 'Roboto Light', sans-serif;
   font-weight: 300;
-  font-size: 15px;
-  line-height: normal;
+  font-size: var(--contact-font-size);
+  line-height: var(--contact-line);
   color: var(--about-text-color);
   white-space: nowrap;
-}
-
-/* One empty line between each label/value pair (MAIL, TEL, INSTAGRAM). */
-.contact-value + .contact-label {
-  margin-top: 1lh;
 }
 
 /* MAIL / TEL / INSTAGRAM: the same face as "federico osatnik" in About's body
@@ -1927,4 +1931,777 @@ body::before {
 .design-hover-ghost.design-project-title {
   border-bottom: 2.25px dotted currentColor;
   padding-bottom: 2px;
+}
+
+/* ====================================================================
+   MOBILE LAYOUT
+   Built by js/mobile.js inside .m-root, from the same data, media and
+   helpers as the desktop (tabs.js/script.js). Everything below applies
+   only under the mobile breakpoint - the same query as MOBILE_LAYOUT_QUERY
+   in script.js (keep the two in sync):
+     - any viewport up to 767.98px wide (767.98, not 767: a fractional-
+       pixel "767px" screen can be 767.3 wide);
+     - or a touch-only screen no taller than 500px (a phone turned
+       landscape), so a rotated phone keeps this layout.
+   Every selector here is scoped to .m-root (or the mobile-only body rule),
+   so none of it can reach the desktop layout.
+   ==================================================================== */
+@media (max-width: 767.98px), (hover: none) and (pointer: coarse) and (max-height: 500px) {
+  /* The whole desktop tree (landing photo, glyph canvas, tagline, tabs, the
+     project view tabs.js appends to body) is hidden - not removed, so a
+     breakpoint change shows it again exactly as it was. textarea: the
+     clipboard fallback's hidden field must stay selectable. */
+  body::before,
+  body > *:not(.m-root):not(textarea) {
+    display: none !important;
+  }
+
+  .m-root {
+    /* SIDE MARGIN: the safety gutter the bottom titles stop at, also every
+       text column's left edge. Never inside a landscape notch. */
+    --m-side: max(clamp(10px, 3.5vw, 20px), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+    --m-safe-top: env(safe-area-inset-top, 0px);
+    --m-safe-bottom: env(safe-area-inset-bottom, 0px);
+    /* 1% of the REAL visible height (dvh: follows the browser bars), with
+       vh as the fallback. */
+    --m-vh: 1vh;
+    /* TITLE CELL: one letter cell of the bottom tabs' titles. "photography"
+       (--m-title-chars, the longest title - set from PANELS by mobile.js)
+       spans --m-title-fill of the screen less the two side margins - the
+       rest is air on its right; a short landscape screen caps it by height
+       so the four bands keep fitting. The bands' height and the titles'
+       size both follow from it. */
+    --m-title-chars: 11;
+    --m-title-fill: 0.75;
+    --m-cell: min(calc((100vw - 2 * var(--m-side)) * var(--m-title-fill) / var(--m-title-chars)), calc(var(--m-vh) * 5));
+    /* Same type-to-cell ratio as the desktop titles (font 0.9 cell, each
+       letter in its own cell): the tracking scales with the type. */
+    --m-font: calc(var(--m-cell) * 0.9);
+    /* The one band height: Contact closed = About = Design = Photography. */
+    --mobile-tab-height: calc(var(--m-cell) * 1.6);
+    /* The titles' shared distance from their band's bottom edge: none - the
+       dotted underline's bottom is the band's bottom edge. */
+    --m-title-inset: 0px;
+    /* The strip of landing left visible under Contact while a tab is open,
+       where the glyphs form FEDERICO OSATNIK - set by mobile.js from the
+       glyph cell; this is only the fallback. */
+    --m-strip-h: 120px;
+    /* The closed tabs' stack: three bands (Photography's with the bottom
+       safe inset). The landing ends where it starts. */
+    --m-stack-h: calc(3 * var(--mobile-tab-height) + var(--m-safe-bottom));
+    --m-contact-h: calc(var(--mobile-tab-height) + var(--m-safe-top));
+    /* The landing tagline's letter cell: its longest line
+       (--m-tagline-chars, set by mobile.js) fits the width. */
+    --m-tagline-chars: 27;
+    --m-tagline-cell: min(calc((100vw - 2 * var(--m-side)) / var(--m-tagline-chars)), calc(var(--m-cell) * 0.6));
+    /* TYPE HIERARCHY inside the tabs - tab titles (--m-font) > project
+       titles (--m-text-cell) > running text (--m-body-font: About, tags,
+       years, a project's info, filters). */
+    --m-text-cell: clamp(12px, calc((100vw - 2 * var(--m-side)) / 19), 20px);
+    --m-body-font: clamp(14px, 4vw, 16px);
+    /* PROJECT_VERTICAL_GAP: between one project (or gallery) and the next,
+       always from the real end of the one above - expanded or not. About
+       half a project block. */
+    --mobile-project-gap: clamp(120px, 40vw, 200px);
+    /* The width a tab's content column has. */
+    --m-content-w: calc(100vw - 2 * var(--m-side));
+    /* A project title's size - also the entry notice's text. */
+    --m-project-title-font: calc(var(--m-text-cell) * 0.9);
+    /* MEDIA SCALE. The galleries' grid: 4 square cells a row across the
+       content column, its streets in the desktop's street-to-cell
+       proportion (35px to a ~216px cell). A project's photos are twice
+       that cell tall - PROJECT_MEDIA ≈ GALLERY_MEDIA × 2, linearly - each
+       at its own aspect ratio. */
+    --m-gallery-street: calc(var(--m-content-w) * 0.036);
+    --m-gallery-cell: calc((var(--m-content-w) - 3 * var(--m-gallery-street)) / 4);
+    --m-project-media-h: calc(2 * var(--m-gallery-cell));
+    /* The tabs' motion: the desktop slide's duration on a stepped clock. */
+    --m-motion: var(--tabs-transition-duration) steps(7, end);
+    /* Contact's info room, above its handle: the original block's natural
+       height when there is room, down to what's left on a short screen (the
+       info block compacts itself to fit - see .contact-content). */
+    --m-contact-body-h: max(72px, min(172px, calc(var(--m-vh) * 100 - 4 * var(--mobile-tab-height) - var(--m-safe-top) - var(--m-safe-bottom) - 8px)));
+
+    display: block;
+    position: fixed;
+    inset: 0;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    background: var(--initial-bg);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @supports (height: 1dvh) {
+    .m-root {
+      --m-vh: 1dvh;
+    }
+  }
+
+  /* LANDING: a fixed visual layer - the room between Contact and the
+     closed tabs, always the same box. Opening a tab never resizes, scales
+     or moves it (or the photo, or the glyphs): the tabs slide over it. */
+  .m-landing {
+    position: absolute;
+    top: var(--m-contact-h);
+    left: 0;
+    right: 0;
+    bottom: var(--m-stack-h);
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  /* The desktop's landing photo, proportional (cover: never stretched,
+     cropped evenly) on the landing box. */
+  .m-landing-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 40% 50%;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* Over the photo, the landing is one column:
+       GLYPH_MOVEMENT_AREA  (all the room left)
+       small gap            (--m-tagline-gap)
+       the tagline          (its own height)
+       side margin
+     so TEXT_TOP = GLYPH_AREA_BOTTOM + SMALL_GAP on every screen - the text
+     is placed by the area's real bottom, never by a coordinate of its own,
+     and the glyphs (which never leave the area) never reach it. No
+     z-index/opacity here: the glyphs still blend with the photo. */
+  .m-landing-stack {
+    --m-tagline-gap: calc(var(--m-tagline-cell) * 0.8);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: var(--m-side);
+    pointer-events: none;
+  }
+
+  /* GLYPH_MOVEMENT_AREA: at least the composition's height (--m-comp-h,
+     from mobile.js), which rests on its bottom edge; it and the room under
+     the tagline (.m-landing-rest) split the free height evenly, so the
+     name and the text sit together around the middle. Its top --m-strip-h
+     is also where the name forms while a tab is open. */
+  .m-glyph-area {
+    position: relative;
+    flex: 1 1 var(--m-comp-h, 0px);
+    min-height: 0;
+  }
+
+  .m-landing-rest {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  /* Exactly the area. Blended like the desktop canvas. */
+  .m-glyphs {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+  }
+
+  /* Three explicit lines, one letter per cell (the desktop tagline's grid),
+     right under the glyph area. */
+  .m-tagline {
+    flex: 0 0 auto;
+    margin: var(--m-tagline-gap) 0 0 var(--m-side);
+    font-family: 'IBM Plex Serif', 'Times New Roman', serif;
+    font-weight: 500;
+    font-size: calc(var(--m-tagline-cell) * 0.9);
+    line-height: 1.3;
+    color: var(--about-text-color);
+    pointer-events: none;
+  }
+
+
+  .m-tagline-line {
+    display: block;
+    white-space: nowrap;
+  }
+
+  .m-grid-char {
+    display: inline-block;
+    width: var(--m-tagline-cell);
+    text-align: center;
+  }
+
+  /* THE TABS: one column over the landing, from Contact's bottom to the
+     screen's. Its first item is the transparent strip: all the free room
+     while every tab is closed (so they pack against the bottom - About,
+     Design, Photography, PHOTOGRAPHY_BOTTOM = VIEWPORT_BOTTOM), only
+     --m-strip-h once a tab opens and takes the rest (their flex-grow,
+     inline, moved by mobile.js's rasterMove - the tabs' stepped clock).
+     Taps on the strip reach the landing. */
+  .m-column {
+    position: absolute;
+    top: var(--m-contact-h);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+  }
+
+  .m-strip {
+    flex: 1 1 var(--m-strip-h);
+    min-height: 0;
+  }
+
+  /* A tab: its colored band (the header) on top, its content below it. */
+  .m-tab {
+    position: relative;
+    flex: 0 0 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto;
+  }
+
+  /* Later tabs above earlier ones, as on desktop (About < Design <
+     Photography) - only ever matters mid-motion. */
+  .m-tab[data-panel="about"] { z-index: 1; }
+  .m-tab[data-panel="design"] { z-index: 2; }
+  .m-tab[data-panel="photography"] { z-index: 3; }
+
+  /* The tab's content, under its band: no height while closed, the
+     unrolled room while open. Scrolls vertically on its own. */
+  .m-tab-content {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--tab-open-bg);
+    scrollbar-width: none;
+  }
+
+  .m-tab-content::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* BAND: Contact's handle and the three tab bands - one height, one title
+     position (on the band's bottom edge, --m-title-inset), one type
+     scale. */
+  .m-band {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: flex-end;
+    height: var(--mobile-tab-height);
+    padding: 0 var(--m-side) var(--m-title-inset);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .m-tab-handle {
+    background: var(--m-band-color);
+  }
+
+  /* Photography's band, closed, touches the screen's bottom: it grows by
+     the home indicator's inset and its title stays above it. Open, its
+     band is a header like the others. */
+  .m-tab:last-child:not(.is-open) .m-tab-handle {
+    height: calc(var(--mobile-tab-height) + var(--m-safe-bottom));
+    padding-bottom: calc(var(--m-title-inset) + var(--m-safe-bottom));
+  }
+
+  .m-tab:last-child.is-open .m-tab-content {
+    padding-bottom: var(--m-safe-bottom);
+  }
+
+  .m-title {
+    display: flex;
+    margin: 0;
+    font-family: 'IBM Plex Serif', 'Times New Roman', serif;
+    font-weight: 500;
+    font-size: var(--m-font);
+    line-height: 1;
+    letter-spacing: 0;
+    text-transform: lowercase;
+    white-space: nowrap;
+    color: var(--m-title-color, var(--tab-title-color));
+  }
+
+  /* One letter per title cell, the first and last flush with the word's
+     ends (the desktop titles' rule). The dotted underline is always there,
+     transparent until active, so showing it never moves the letters; its
+     bottom is the band's bottom. */
+  .m-title-char {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: var(--m-cell);
+    text-align: center;
+    padding-bottom: 2px;
+    border-bottom: var(--tab-title-underline-width) dotted transparent;
+  }
+
+  .m-title-char:first-child { text-align: left; }
+  .m-title-char:last-child { text-align: right; }
+
+  .m-tab.is-open .m-title-char,
+  .m-contact.is-open .m-title-char {
+    border-bottom-color: currentColor;
+  }
+
+  /* CONTACT: on top, the closed band (plus the top safe inset) tall; it
+     unrolls downward over everything but an open project's media. Its info
+     block is the desktop's own (buildContactContent), placed by the same
+     variables the desktop sets from JS - here from CSS. */
+  .m-contact {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    height: var(--m-contact-h);
+    overflow: hidden;
+    background: var(--tab-open-bg);
+    transition: height var(--m-motion);
+    cursor: pointer;
+    --contact-handle-height: var(--mobile-tab-height);
+    --contact-text-left: var(--m-side);
+    --m-contact-pad: 14px;
+    --contact-content-top: var(--m-contact-pad);
+    --contact-available-height: calc(var(--m-contact-body-h) - var(--m-contact-pad) - var(--contact-safe-gap));
+  }
+
+  .m-contact.is-open {
+    height: calc(var(--m-contact-h) + var(--m-contact-body-h));
+  }
+
+  .m-contact .contact-content-window {
+    top: var(--m-safe-top);
+  }
+
+  .m-contact-handle {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--hover-orange);
+  }
+
+  /* About Me's content. */
+  .m-about {
+    padding: 24px var(--m-side) 32px;
+  }
+
+  .m-about p {
+    margin: 0;
+    font-family: 'Roboto Light', sans-serif;
+    font-weight: 300;
+    font-size: var(--m-body-font);
+    line-height: 1.4;
+    color: var(--about-text-color);
+    white-space: pre-line;
+  }
+
+  .m-about p + p {
+    margin-top: 1em;
+  }
+
+  .m-about .tab-body-name {
+    font-family: 'Roboto Medium', sans-serif;
+    font-weight: 500;
+  }
+
+  /* The skills ribbon: the desktop marquee's loop and keyframes. */
+  .m-marquee {
+    margin: 28px calc(-1 * var(--m-side)) 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .m-marquee-track {
+    display: inline-block;
+    font-family: 'IBM Plex Serif', 'Times New Roman', serif;
+    font-weight: 500;
+    font-size: calc(var(--m-text-cell) * 0.9);
+    line-height: 1.2;
+    text-transform: lowercase;
+    color: var(--about-text-color);
+    will-change: transform;
+    animation: tab-marquee-scroll 24s steps(40, end) infinite;
+  }
+
+  .m-marquee-track .m-grid-char,
+  .m-project-title .m-grid-char {
+    width: var(--m-text-cell);
+  }
+
+  /* Design / Photography content: projects, then the gallery, one
+     PROJECT_VERTICAL_GAP apart - a flex gap, so it's always measured from
+     a project's real end, its info open or not. */
+  .m-projects {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mobile-project-gap);
+    padding: 40px 0 var(--mobile-project-gap);
+  }
+
+  /* The dark gray caption band behind a project's (or gallery's) title. */
+  .m-caption {
+    background: var(--project-caption-bg);
+    padding: 8px var(--m-side) 10px;
+  }
+
+  .m-project-title {
+    display: block;
+    font-family: 'IBM Plex Serif', 'Times New Roman', serif;
+    font-weight: 500;
+    font-size: var(--m-project-title-font);
+    line-height: 1.3;
+    color: var(--tab-open-bg);
+  }
+
+  /* Title letters on the text cell; words wrap whole, never mid-word. */
+  .m-word {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  /* Running text in the tabs' type: tags, years, filters. */
+  .m-tags,
+  .m-year {
+    font-family: 'Roboto Light', sans-serif;
+    font-weight: 300;
+    font-size: var(--m-body-font);
+    line-height: 1.35;
+    text-transform: uppercase;
+    color: #b3b3b3;
+  }
+
+  .m-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+  }
+
+  /* The row under the title: TAGS ... YEAR [+], all on one baseline; the
+     year and its control are one unit on the right end. */
+  .m-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 8px 16px;
+    padding: 10px var(--m-side) 0;
+  }
+
+  .m-meta .m-tags {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .m-meta-end {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-left: auto;
+  }
+
+  /* A gallery's filter row, under its title. */
+  .m-filters {
+    padding: 10px var(--m-side) 0;
+  }
+
+  .m-filter {
+    padding: 2px 4px;
+    margin: 0 -4px;
+    cursor: pointer;
+  }
+
+  .m-filter.is-active {
+    background: var(--hover-orange);
+    color: var(--tab-open-bg);
+  }
+
+  /* THE SQUARE CONTROL: a symbol on an orange square, sized by its own
+     font. A fixed box, so "+" and "−" swap without moving anything. Its
+     touch area reaches well past the square (::before), so a small square
+     is still an easy tap. */
+  .m-square {
+    position: relative;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15em;
+    height: 1.15em;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: var(--hover-orange);
+    font-family: 'IBM Plex Serif', 'Times New Roman', serif;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .m-square::before {
+    content: '';
+    position: absolute;
+    inset: -14px;
+  }
+
+  /* "+"/"−" after a project's year: the project title's own color, the
+     row's size. */
+  .m-info-toggle {
+    font-size: var(--m-body-font);
+    color: var(--tab-open-bg);
+  }
+
+  /* "−" over fullscreen media: the tabs' light gray. */
+  .m-full-close {
+    font-size: 22px;
+    color: var(--tab-open-bg);
+  }
+
+  /* A project's info, inline in its flow: no height while closed, its real
+     height while open (the 0fr/1fr row - so the projects below move down
+     and back up with it), in a short stepped move. On the tabs' light gray,
+     its text in the caption band's gray. */
+  .m-info {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.2s steps(4, end);
+  }
+
+  .m-project.is-expanded .m-info {
+    grid-template-rows: 1fr;
+  }
+
+  .m-info-clip {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .m-info-inner {
+    padding: 16px var(--m-side) 4px;
+    background: var(--tab-open-bg);
+    color: var(--project-caption-bg);
+    font-family: 'Roboto Light', sans-serif;
+    font-weight: 300;
+    font-size: var(--m-body-font);
+    line-height: 1.45;
+  }
+
+  .m-info-format {
+    margin-top: 0.7em;
+  }
+
+  .m-info-description {
+    margin-top: 1em;
+  }
+
+  /* A project's photos, first in its block: the carousel's media, in
+     order, on a row that scrolls sideways under the finger (native touch
+     scrolling - a mostly vertical gesture still scrolls the tab). Only the
+     row scrolls sideways, never the page. */
+  .m-carousel {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 14px var(--m-side);
+    background: #fff;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .m-carousel::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Trailing gutter (a scrolled flex row loses its own right padding). */
+  .m-carousel::after {
+    content: '';
+    flex: 0 0 1px;
+    margin-left: calc(var(--m-side) - 13px);
+  }
+
+  .m-carousel-item {
+    flex: 0 0 auto;
+    height: var(--m-project-media-h);
+    max-width: calc(100vw - 2 * var(--m-side));
+    cursor: pointer;
+  }
+
+  /* The gallery: the desktop grid's 4 columns and its random empty cells
+     (personalPhotoLayout), square cells (--m-gallery-cell), media whole
+     inside each (contain). No lines drawn. */
+  .m-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(4, var(--m-gallery-cell));
+    gap: var(--m-gallery-street);
+    margin-top: 14px;
+    padding: 14px var(--m-side);
+    background: #fff;
+  }
+
+  .m-gallery-cell,
+  .m-gallery-empty {
+    aspect-ratio: 1 / 1;
+    min-width: 0;
+  }
+
+  .m-gallery-cell {
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  /* FULLSCREEN MEDIA: above everything, Contact included. The whole layer
+     is the backdrop (a tap on it closes) and is what slides in and out
+     (translate3d, set by mobile.js's rasterMove). Inside, a row of one
+     slide per item, moved sideways by the finger and then by rasterMove;
+     each item whole, centered and as large as its slide allows (contain)
+     inside the safe area, leaving backdrop around it whenever its
+     proportion does; the close square top-right. Hidden outright when
+     closed, and deaf to taps while it moves. */
+  .m-full {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    /* The desktop's veil over what lies underneath - the page still shows
+       through it. No blur. */
+    background: var(--under-layer-veil);
+    visibility: hidden;
+  }
+
+  .m-full.is-open {
+    visibility: visible;
+  }
+
+  .m-full.is-moving,
+  .m-full.is-moving * {
+    pointer-events: none;
+  }
+
+  .m-full-track {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    /* The drag is mobile.js's own (the row follows the finger), so the
+       browser doesn't pan or zoom here. */
+    touch-action: none;
+  }
+
+  .m-full-row {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    will-change: transform;
+  }
+
+  .m-full-slide {
+    flex: 0 0 100%;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding:
+      calc(var(--m-safe-top) + 14px + 1.15 * 22px + 14px)
+      var(--m-side)
+      calc(var(--m-safe-bottom) + 24px);
+    /* Its content box is the room the media fits into (cqw/cqh below). */
+    container-type: size;
+  }
+
+  /* The media's own box, exactly its proportion (--m-media-ratio, set from
+     the item's w/h): as wide as the slide allows, or as tall - so only the
+     media, not the slide around it, counts as "the media" for a tap. */
+  .m-full-media {
+    flex: 0 0 auto;
+    width: min(100cqw, 100cqh * var(--m-media-ratio, 1));
+    aspect-ratio: var(--m-media-ratio, 1);
+  }
+
+  .m-full-close {
+    position: absolute;
+    z-index: 1;
+    top: calc(var(--m-safe-top) + 14px);
+    right: var(--m-side);
+  }
+
+  /* THE NOTICE: on entering, once per session. A large gray rectangle
+     centered over everything, with the portfolio still visible around it
+     under the site's white veil (its backdrop - a tap there closes). It
+     leaves sideways (translate3d, by rasterMove), the veil clearing in the
+     same steps (--m-notice-veil); then it is removed. */
+  .m-notice {
+    --m-notice-veil: 1;
+    --m-notice-margin: max(24px, 7vw);
+    /* Its sides: half the side margin outside the box, the other half
+       inside - so the text starts exactly on the tab titles' axis
+       (--m-side from the screen's edge). */
+    --m-notice-margin-x: calc(var(--m-side) / 2);
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding:
+      calc(var(--m-safe-top) + var(--m-notice-margin))
+      var(--m-notice-margin-x)
+      calc(var(--m-safe-bottom) + var(--m-notice-margin));
+  }
+
+  .m-notice::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--under-layer-veil);
+    opacity: var(--m-notice-veil);
+  }
+
+  .m-notice.is-leaving,
+  .m-notice.is-leaving * {
+    pointer-events: none;
+  }
+
+  .m-notice-box {
+    position: relative;
+    width: 100%;
+    padding:
+      56px
+      calc(var(--m-side) - var(--m-notice-margin-x))
+      40px;
+    background: var(--tab-open-bg);
+    will-change: transform;
+  }
+
+  /* The project titles' size (--m-project-title-font), left-aligned on the
+     tab titles' axis. */
+  .m-notice-text {
+    margin: 0;
+    font-family: 'IBM Plex Serif', 'Times New Roman', serif;
+    font-weight: 500;
+    font-size: var(--m-project-title-font);
+    line-height: 1.45;
+    text-align: left;
+    color: var(--tab-text-dark);
+  }
+
+  .m-notice-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    font-size: 22px;
+    color: var(--tab-open-bg);
+  }
 }

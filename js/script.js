@@ -45,6 +45,17 @@ const TRANSITION_MS = 350;
 const TRANSITION_STEP_MS = 45;
 const TOP_MARGIN = 0;
 
+// The one mobile breakpoint: phones (and narrow windows) get js/mobile.js's
+// own layout instead of this one. Keep in sync with the MOBILE LAYOUT
+// @media block in style.css. While it matches, this file's landing is hidden
+// and inert (trigger() and tick() below stand down); the moment it stops
+// matching, everything here runs exactly as before.
+const MOBILE_LAYOUT_QUERY = '(max-width: 767.98px), (hover: none) and (pointer: coarse) and (max-height: 500px)';
+const MOBILE_LAYOUT_MQ = window.matchMedia(MOBILE_LAYOUT_QUERY);
+function isMobileLayout() {
+  return MOBILE_LAYOUT_MQ.matches;
+}
+
 function buildWordCells(word, rowOffset, gap) {
   const cells = [];
   let colOffset = 0;
@@ -622,7 +633,9 @@ let transitionStart = null;
 let transitionFrom = null;
 
 function trigger() {
-  if (triggered) return;
+  // The mobile layout has its own tabs (js/mobile.js) - a tap there must
+  // never open this hidden desktop one.
+  if (triggered || isMobileLayout()) return;
   triggered = true;
   resetting = false;
   introCompleteDispatched = false;
@@ -702,6 +715,11 @@ function drawGlyph(x, y) {
 }
 
 function tick(now) {
+  // Hidden under the mobile layout: nothing to draw until it's back.
+  if (isMobileLayout()) {
+    requestAnimationFrame(tick);
+    return;
+  }
   const w = window.innerWidth;
   const h = window.innerHeight;
   ctx.clearRect(0, 0, w, h);

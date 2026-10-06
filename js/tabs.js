@@ -624,16 +624,6 @@ const TAB_ACCENT_COLORS = {
   photography: { rect: '#D2E6B0', title: '#AD4A3A' }
 };
 
-// The phone-only screen (.mobile-notice, style.css): one tab's pair drawn at
-// random once per load - its rect as the background, its own title color as
-// the text - set on the root so it holds for the whole visit.
-(function pickMobileNoticeColors() {
-  const pairs = Object.values(TAB_ACCENT_COLORS);
-  const pair = pairs[Math.floor(Math.random() * pairs.length)];
-  document.documentElement.style.setProperty('--mobile-notice-bg', pair.rect);
-  document.documentElement.style.setProperty('--mobile-notice-color', pair.title);
-})();
-
 function cubicBezier(x1, y1, x2, y2) {
   function bezierCoord(t, p1, p2) {
     const u = 1 - t;
@@ -4075,6 +4065,16 @@ function buildContactLabel(text) {
   return label;
 }
 
+// CONTACT_ITEM: one label and its value, kept together as one group of the
+// info block's vertical layout (.contact-content).
+function buildContactItem(labelText, valueLine) {
+  const item = document.createElement('div');
+  item.className = 'contact-item';
+  item.appendChild(buildContactLabel(labelText));
+  item.appendChild(valueLine);
+  return item;
+}
+
 // The info block (MAIL / email, TEL / phone, INSTAGRAM / handle), inside a
 // window that clips it above the title - see .contact-content-window and
 // positionContactContent.
@@ -4084,7 +4084,6 @@ function buildContactContent() {
   const content = document.createElement('div');
   content.className = 'contact-content';
 
-  const igLabel = buildContactLabel('INSTAGRAM');
   const igLine = document.createElement('div');
   igLine.className = 'contact-value';
   const ig = document.createElement('a');
@@ -4097,12 +4096,9 @@ function buildContactContent() {
   ig.addEventListener('click', e => e.stopPropagation());
   igLine.appendChild(ig);
 
-  content.appendChild(buildContactLabel('MAIL'));
-  content.appendChild(buildCopyValue(CONTACT_EMAIL));
-  content.appendChild(buildContactLabel('TEL'));
-  content.appendChild(buildCopyValue(CONTACT_PHONE));
-  content.appendChild(igLabel);
-  content.appendChild(igLine);
+  content.appendChild(buildContactItem('MAIL', buildCopyValue(CONTACT_EMAIL)));
+  content.appendChild(buildContactItem('TEL', buildCopyValue(CONTACT_PHONE)));
+  content.appendChild(buildContactItem('INSTAGRAM', igLine));
   win.appendChild(content);
   return win;
 }
@@ -4224,6 +4220,13 @@ function baselineOffsetIn(el, contentHeight) {
 // (--contact-content-top), so it doesn't move while the strip opens - the
 // orange handle slides down off it and the window above the handle (see
 // .contact-content-window) uncovers it line by line.
+//
+// Then the room it has: AVAILABLE_CONTACT_HEIGHT, from that top down to the
+// orange handle's top in the OPEN strip, less CONTACT_SAFE_GAP
+// (--contact-safe-gap) - so MAX_CONTENT_BOTTOM = ORANGE_RECT_TOP -
+// CONTACT_SAFE_GAP. Published as --contact-available-height; .contact-content
+// fits itself into it (style.css). It's the open geometry, not the current
+// one, so the block keeps its size while the strip unrolls over it.
 function positionContactContent(titleCharHeight) {
   const label = contactTabEl.querySelector('.contact-label');
   const firstChar = contactTitleEl.firstElementChild;
@@ -4233,8 +4236,17 @@ function positionContactContent(titleCharHeight) {
   const closedTitleTop = contactClosedHeight() - underline - titleCharHeight;
   const charContentHeight = titleCharHeight - (parseFloat(charStyle.paddingTop) || 0) - (parseFloat(charStyle.paddingBottom) || 0);
   const closedTitleBaseline = closedTitleTop + (parseFloat(charStyle.paddingTop) || 0) + baselineOffsetIn(firstChar, charContentHeight);
-  const labelBaselineOffset = baselineOffsetIn(label, label.getBoundingClientRect().height);
-  contactTabEl.style.setProperty('--contact-content-top', (closedTitleBaseline - labelBaselineOffset) + 'px');
+  const orangeRectTop = contactOpenHeight() - contactClosedHeight();
+  const safeGap = readPx('--contact-safe-gap', 8);
+  // The label's size follows the available height, and its baseline offset
+  // (so the block's top) follows the label's size - a second pass settles
+  // that loop.
+  for (let pass = 0; pass < 2; pass++) {
+    const labelBaselineOffset = baselineOffsetIn(label, label.getBoundingClientRect().height);
+    const top = closedTitleBaseline - labelBaselineOffset;
+    contactTabEl.style.setProperty('--contact-content-top', top + 'px');
+    contactTabEl.style.setProperty('--contact-available-height', Math.max(0, orangeRectTop - top - safeGap) + 'px');
+  }
 }
 
 // Same motion as a side tab's slide (animateToTargets): the same duration,
