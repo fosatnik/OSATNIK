@@ -2065,16 +2065,15 @@ body::before {
   }
 
   /* Over the photo, the landing is one column:
-       GLYPH_MOVEMENT_AREA  (all the room left)
-       small gap            (--m-tagline-gap)
+       NAME BOX             (top to FEDERICO OSATNIK's bottom)
+       glyph-to-role gap    (--mobile-glyph-to-role-gap)
        the tagline          (its own height)
-       side margin
-     so TEXT_TOP = GLYPH_AREA_BOTTOM + SMALL_GAP on every screen - the text
-     is placed by the area's real bottom, never by a coordinate of its own,
-     and the glyphs (which never leave the area) never reach it. No
+       the rest of the room
+     so ROLE_TEXT_TOP = GLYPH_BOTTOM + GAP on every screen - the text is
+     placed by the name's real bottom, never by a coordinate of its own. No
      z-index/opacity here: the glyphs still blend with the photo. */
   .m-landing-stack {
-    --m-tagline-gap: calc(var(--m-tagline-cell) * 0.8);
+    --mobile-glyph-to-role-gap: calc(var(--m-tagline-cell) * 0.8);
     position: absolute;
     inset: 0;
     display: flex;
@@ -2083,14 +2082,11 @@ body::before {
     pointer-events: none;
   }
 
-  /* GLYPH_MOVEMENT_AREA: at least the composition's height (--m-comp-h,
-     from mobile.js), which rests on its bottom edge; it and the room under
-     the tagline (.m-landing-rest) split the free height evenly, so the
-     name and the text sit together around the middle. Its top --m-strip-h
-     is also where the name forms while a tab is open. */
+  /* NAME BOX: from the landing's top to the bottom of FEDERICO OSATNIK
+     (--m-name-bottom, from mobile.js) - the name sits in the strip under
+     Contact from the start, the same place a tab leaves it. */
   .m-glyph-area {
-    position: relative;
-    flex: 1 1 var(--m-comp-h, 0px);
+    flex: 0 0 var(--m-name-bottom, var(--m-strip-h));
     min-height: 0;
   }
 
@@ -2099,7 +2095,8 @@ body::before {
     min-height: 0;
   }
 
-  /* Exactly the area. Blended like the desktop canvas. */
+  /* The whole landing box - the glyphs' room to hop in. Blended like the
+     desktop canvas. */
   .m-glyphs {
     position: absolute;
     inset: 0;
@@ -2113,7 +2110,7 @@ body::before {
      right under the glyph area. */
   .m-tagline {
     flex: 0 0 auto;
-    margin: var(--m-tagline-gap) 0 0 var(--m-side);
+    margin: var(--mobile-glyph-to-role-gap) 0 0 var(--m-side);
     font-family: 'IBM Plex Serif', 'Times New Roman', serif;
     font-weight: 500;
     font-size: calc(var(--m-tagline-cell) * 0.9);
@@ -2291,16 +2288,28 @@ body::before {
     background: var(--hover-orange);
   }
 
-  /* About Me's content. */
+  /* About Me's content: a column at least as tall as the tab's open room
+     (the screen less Contact, the name's strip and the three bands - the
+     geometry the column itself is built from), its bottom on the next
+     tab's top. The ribbon takes the free room under the text and sits in
+     its middle (.m-marquee); with no free room it simply follows the text
+     and the tab scrolls. Fixed during the opening, so nothing in it shifts
+     while the tab unrolls. */
   .m-about {
-    padding: 24px var(--m-side) 32px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(var(--m-vh) * 100 - var(--m-contact-h) - var(--m-strip-h) - var(--m-stack-h));
+    padding: 24px var(--m-side) 0;
   }
 
+  /* The body: 0.75 × 1.1 of the tabs' running text, same line-height
+     ratio. */
   .m-about p {
     margin: 0;
     font-family: 'Roboto Light', sans-serif;
     font-weight: 300;
-    font-size: var(--m-body-font);
+    font-size: calc(var(--m-body-font) * 0.825);
     line-height: 1.4;
     color: var(--about-text-color);
     white-space: pre-line;
@@ -2315,9 +2324,14 @@ body::before {
     font-weight: 500;
   }
 
-  /* The skills ribbon: the desktop marquee's loop and keyframes. */
+  /* The skills ribbon: the desktop marquee's loop and keyframes. Its auto
+     top/bottom margins split the free room under the text evenly, so
+     TICKER_CENTER_Y = BODY_BOTTOM + (NEXT_TAB_TOP - BODY_BOTTOM) / 2; its
+     even padding (invisible) is only the least air on either side. */
   .m-marquee {
-    margin: 28px calc(-1 * var(--m-side)) 0;
+    flex: 0 0 auto;
+    margin: auto calc(-1 * var(--m-side));
+    padding: 28px 0;
     overflow: hidden;
     white-space: nowrap;
   }

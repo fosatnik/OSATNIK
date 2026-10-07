@@ -177,15 +177,16 @@
     photo.src = LANDING_PHOTO_SRC;
     photo.alt = '';
     photo.draggable = false;
-    // Over the photo, one column: GLYPH AREA (the canvas is exactly this
-    // box - the glyphs can never leave it - with FEDERICO OSATNIK resting
-    // on its bottom edge), then a small fixed gap, then the tagline - so the
-    // text always starts right under the name - then the rest of the room.
-    // The area and the room below share the free height, so the name and
-    // the text sit together around the landing's middle.
+    // The glyphs' canvas is the whole landing box (their hops' room).
+    // FEDERICO OSATNIK rests in the strip under Contact from the start
+    // (MOBILE_GLYPH_ORIGIN_Y - the same place a tab leaves it), and over the
+    // photo one column follows it: the NAME BOX (top to the name's bottom,
+    // --m-name-bottom from glyphs.layout), the glyph-to-role gap, then the
+    // tagline - so the text always starts right under the name, wherever it
+    // sits - then the rest of the room.
+    const canvas = el('canvas', 'm-glyphs', landingEl);
     const stack = el('div', 'm-landing-stack', landingEl);
-    const glyphArea = el('div', 'm-glyph-area', stack);
-    const canvas = el('canvas', 'm-glyphs', glyphArea);
+    el('div', 'm-glyph-area', stack);
     taglineEl = el('p', 'm-tagline', stack);
     el('div', 'm-landing-rest', stack);
     TAGLINE_LINES.forEach(line => {
@@ -265,13 +266,12 @@
       return Math.round(v / cell) * cell;
     }
 
-    // Both compositions on one cell, sized from the landing box (fixed),
-    // never from the glyph area (which the composition itself sizes): the
-    // landing's composition rests on the glyph area's bottom edge - its
-    // height published as --m-comp-h, the area's least height, so the
-    // tagline starts right under it - and the strip's is centered in the
-    // strip, whose height (--m-strip-h, read by the CSS column) is set here
-    // from that same cell.
+    // Both compositions on one cell, sized from the landing box (fixed).
+    // They also share one place: the landing's home IS the strip's name,
+    // centered in the strip (whose height, --m-strip-h, read by the CSS
+    // column, is set here from that same cell) - so opening a tab never
+    // moves the name as a whole. Its bottom edge is published as
+    // --m-name-bottom, where the tagline's gap starts.
     function layout() {
       const rect = canvas.getBoundingClientRect();
       width = rect.width;
@@ -292,8 +292,10 @@
       const compW = totalWidth * cell;
       const compH = totalHeight * cell;
       const stripH = Math.round(compH + 2 * side);
+      // MOBILE_GLYPH_ORIGIN_Y: the name's top, in the landing (= canvas).
+      const originY = (stripH - compH) / 2;
       root.style.setProperty('--m-strip-h', stripH + 'px');
-      root.style.setProperty('--m-comp-h', Math.ceil(compH) + 'px');
+      root.style.setProperty('--m-name-bottom', (originY + compH) + 'px');
       if (height < 4) return;
       const dpr = window.devicePixelRatio || 1;
       canvas.width = Math.round(width * dpr);
@@ -301,9 +303,9 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       const landX = (width - compW) / 2;
-      const landY = Math.max(0, height - compH);
+      const landY = originY;
       const nameX = (width - compW) / 2;
-      const nameY = (stripH - compH) / 2;
+      const nameY = originY;
       const now = performance.now();
       particles = allCells.map(c => {
         const p = {
